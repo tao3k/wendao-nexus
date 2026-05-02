@@ -1,0 +1,63 @@
+# Wendao Nexus Johnny.Decimal topology manifest.
+#
+# This is the project-local category catalog used by path-first documentation
+# authoring. Existing category meaning is stable unless a reviewed manifest
+# change explicitly supersedes it.
+
+[manifest]
+id = "wendao-nexus.docs-topology"
+framework = "johnny-decimal"
+mode = "path_first"
+coordinate_source = "path"
+note_file_shape = "AC.ID_semantic_name.md"
+category_directory_shape = "docs/AC_slug"
+policy_reference = "wendao-episteme/policies/johnny_decimal"
+
+[[areas]]
+range = "00-09"
+name = "Index and intake"
+description = "Documentation index, governed inbox, and authoring coordination."
+
+[[areas]]
+range = "10-19"
+name = "Architecture"
+description = "Nexus service boundary, dependency direction, and public protocol."
+
+[[areas]]
+range = "20-29"
+name = "Runtime"
+description = "Sync runtime, connector behavior, registries, and source adapters."
+
+[[areas]]
+range = "90-99"
+name = "Operations"
+description = "Validation, audit expectations, and documentation governance."
+
+[[categories]]
+id = "00"
+area = "00-09"
+directory = "docs/00_index"
+name = "JDex and documentation index"
+description = "Stable entrypoint for the documentation coordinate map."
+reserved = true
+
+[[categories]]
+id = "10"
+area = "10-19"
+directory = "docs/10_architecture"
+name = "Nexus architecture"
+description = "Standalone Nexus boundary and Wendao-side mounting model."
+
+[[categories]]
+id = "20"
+area = "20-29"
+directory = "docs/20_runtime"
+name = "Runtime and connectors"
+description = "Source connectors, sync orchestration, and registry contracts."
+
+[[categories]]
+id = "90"
+area = "90-99"
+directory = "docs/90_operations"
+name = "Validation and governance"
+description = "Local validation commands and documentation audit rules."

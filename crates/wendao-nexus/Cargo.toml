@@ -1,0 +1,22 @@
+[package]
+name = "wendao-nexus"
+description = "Facade adapters that compose Wendao Nexus runtime and Flight contracts."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+async-trait.workspace = true
+serde_json.workspace = true
+wendao-nexus-core = { path = "../wendao-nexus-core" }
+wendao-nexus-flight = { path = "../wendao-nexus-flight" }
+wendao-nexus-runtime = { path = "../wendao-nexus-runtime" }
+
+[dev-dependencies]
+arrow-array.workspace = true
+rust-lang-project-harness.workspace = true
+tokio.workspace = true
+wendao-nexus-connectors = { path = "../wendao-nexus-connectors" }

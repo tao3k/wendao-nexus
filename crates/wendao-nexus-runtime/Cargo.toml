@@ -1,0 +1,29 @@
+[package]
+name = "wendao-nexus-runtime"
+description = "Sync runtime and registry facades for Wendao Nexus."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+async-trait.workspace = true
+blake3.workspace = true
+chrono.workspace = true
+futures.workspace = true
+hex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tower.workspace = true
+uuid.workspace = true
+wendao-nexus-core = { path = "../wendao-nexus-core" }
+
+[dev-dependencies]
+rust-lang-project-harness.workspace = true
+tokio.workspace = true
+wendao-nexus-connectors = { path = "../wendao-nexus-connectors" }

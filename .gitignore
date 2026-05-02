@@ -1,0 +1,8 @@
+/target
+**/*.rs.bk
+/.devenv
+
+.vscode
+.gdb_history
+perf.data*
+.pre-commit-config.yaml

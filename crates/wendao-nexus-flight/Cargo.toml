@@ -1,0 +1,27 @@
+[package]
+name = "wendao-nexus-flight"
+description = "Arrow Flight protocol contracts for Wendao Nexus."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+arrow-array.workspace = true
+arrow-flight.workspace = true
+arrow-ipc.workspace = true
+arrow-schema.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+prost.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tonic.workspace = true
+wendao-nexus-core = { path = "../wendao-nexus-core" }
+
+[dev-dependencies]
+rust-lang-project-harness.workspace = true
+tokio.workspace = true
