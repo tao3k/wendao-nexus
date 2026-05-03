@@ -32,26 +32,6 @@ const FORBIDDEN_CONNECTOR_SOURCE_TOKENS: &[&str] = &[
     "tokio_tungstenite",
 ];
 
-// Test-only guard for the current deterministic fixture phase.
-//
-// These crates are valid backend choices for Wendao-side integration or a
-// later Nexus storage/search adapter. They are not part of the public Nexus
-// contract in this repository phase, where the facade only proves SourcePack
-// ingestion and serverless Arrow Flight batches.
-const CURRENT_PHASE_FORBIDDEN_BACKEND_DEPENDENCIES: &[&str] = &[
-    "duckdb",
-    "datafusion",
-    "tantivy",
-    "lance",
-    "lance-arrow",
-    "lancedb",
-    "redis",
-    "valkey",
-    "fred",
-    "deadpool-redis",
-    "bb8-redis",
-    "cocoindex",
-];
 const FORBIDDEN_RUNTIME_OWNERSHIP_TOKENS: &[&str] = &[
     "pub struct LocalKnowledgeStore",
     "pub trait LocalKnowledgeStore",
@@ -95,11 +75,28 @@ fn current_phase_has_no_document_parser_direct_dependencies() {
 
 #[test]
 fn current_phase_has_no_storage_search_cache_or_cocoindex_direct_dependencies() {
+    // These are valid backend choices for Wendao-side integration or a later
+    // adapter. This test only says the current fixture phase should not pull
+    // them into the Nexus contract workspace.
+    let backend_dependencies = [
+        "duckdb",
+        "datafusion",
+        "tantivy",
+        "lance",
+        "lance-arrow",
+        "lancedb",
+        "redis",
+        "valkey",
+        "fred",
+        "deadpool-redis",
+        "bb8-redis",
+        "cocoindex",
+    ];
     let root = workspace_root();
     for manifest in workspace_manifests(&root) {
         let content = fs::read_to_string(&manifest).unwrap();
         let package = package_name(&content).unwrap_or_else(|| manifest.display().to_string());
-        for dependency in CURRENT_PHASE_FORBIDDEN_BACKEND_DEPENDENCIES {
+        for dependency in backend_dependencies {
             assert!(
                 !manifest_declares_dependency(&content, dependency),
                 "{package} must not declare `{dependency}` during the contract-only fixture phase"
