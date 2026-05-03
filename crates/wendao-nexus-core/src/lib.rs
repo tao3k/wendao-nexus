@@ -18,6 +18,8 @@ pub mod connector;
 pub mod document;
 /// Cross-crate error and result types.
 pub mod error;
+/// Source authority profile and basic judgement contracts.
+pub mod profile;
 /// Agent-facing query request and evidence response contracts.
 pub mod query;
 /// Source identity, capability, cursor, checkpoint, and delta contracts.
@@ -33,7 +35,8 @@ pub use document::{
     CitationRef, ExternalKnowledgeDocument, ExtractedDocumentResource,
     ExtractedDocumentResourceSet, FigureRef, KnowledgeSection, LicenseInfo, RawSourceDocument,
     SOURCE_METADATA_ACL_TAGS_KEY, SOURCE_METADATA_AMENDMENT_VERSION_KEY,
-    SOURCE_METADATA_ARTICLE_KEY, SOURCE_METADATA_AUTHORS_KEY, SOURCE_METADATA_CROP_KEY,
+    SOURCE_METADATA_ARTICLE_KEY, SOURCE_METADATA_AUTHORS_KEY,
+    SOURCE_METADATA_CLINICAL_TRIAL_ID_KEY, SOURCE_METADATA_CROP_KEY,
     SOURCE_METADATA_DEMAND_SIGNAL_KEY, SOURCE_METADATA_DEPARTMENT_KEY,
     SOURCE_METADATA_DOCUMENT_KIND_KEY, SOURCE_METADATA_DOI_KEY, SOURCE_METADATA_EFFECTIVE_AT_KEY,
     SOURCE_METADATA_JURISDICTION_KEY, SOURCE_METADATA_LICENSE_KEY, SOURCE_METADATA_LICENSE_URL_KEY,
@@ -45,6 +48,7 @@ pub use document::{
     SOURCE_METADATA_VERSION_KEY, SOURCE_METADATA_WEATHER_WINDOW_KEY, SourceMetadata, TableRef,
 };
 pub use error::{NexusError, NexusResult};
+pub use profile::{AuthorityJudgement, EvidenceWarning, IdentifierKind, SourceAuthorityProfile};
 pub use query::{
     EVIDENCE_KIND_METADATA_KEY, EvidenceConflictMode, EvidenceKind, EvidenceRecord,
     ExternalKnowledgeCompareRequest, ExternalKnowledgeOpenRequest, ExternalKnowledgeRefreshRequest,

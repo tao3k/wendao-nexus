@@ -29,6 +29,11 @@ name = "Runtime"
 description = "Sync runtime, connector behavior, registries, and source adapters."
 
 [[areas]]
+range = "30-39"
+name = "Algorithms"
+description = "Evidence scoring, judgement contracts, and downstream analytic protocols."
+
+[[areas]]
 range = "90-99"
 name = "Operations"
 description = "Validation, audit expectations, and documentation governance."
@@ -54,6 +59,13 @@ area = "20-29"
 directory = "docs/20_runtime"
 name = "Runtime and connectors"
 description = "Source connectors, sync orchestration, and registry contracts."
+
+[[categories]]
+id = "30"
+area = "30-39"
+directory = "docs/30_algorithms"
+name = "Evidence algorithms"
+description = "Rust basic judgement and Julia-side evidence scoring contracts."
 
 [[categories]]
 id = "90"

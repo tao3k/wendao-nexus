@@ -20,6 +20,8 @@ pub const SOURCE_METADATA_UPDATED_AT_KEY: &str = "updated_at";
 pub const SOURCE_METADATA_DOI_KEY: &str = "doi";
 /// Standard raw metadata key for PMID identifiers.
 pub const SOURCE_METADATA_PMID_KEY: &str = "pmid";
+/// Standard raw metadata key for clinical trial identifiers.
+pub const SOURCE_METADATA_CLINICAL_TRIAL_ID_KEY: &str = "clinical_trial_id";
 /// Standard raw metadata key for MeSH term lists.
 pub const SOURCE_METADATA_MESH_TERMS_KEY: &str = "mesh_terms";
 /// Standard raw metadata key for legal jurisdictions.

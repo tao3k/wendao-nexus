@@ -1,6 +1,6 @@
 //! Serverless fixture harness for validating Nexus source-pack contracts.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use arrow_array::RecordBatch;
@@ -11,7 +11,7 @@ use wendao_nexus_core::{
     AuthorityLevel, EvidenceBoundary, EvidenceRecord, ExternalKnowledgeCompareRequest,
     ExternalKnowledgeDocument, ExternalKnowledgeOpenRequest, ExternalKnowledgeSearchRequest,
     ExternalKnowledgeSearchResponse, KnowledgeSourceConnector, NexusError, NexusResult,
-    ProvenanceBundle, SourceDomain, SourceItemRef, TrustPolicy,
+    ProvenanceBundle, SourceAuthorityProfile, SourceDomain, SourceItemRef, TrustPolicy,
 };
 use wendao_nexus_flight::{
     FlightCompareResultRow, FlightOpenDocumentRow, FlightSearchResultRow, FlightStatusRow,
@@ -21,8 +21,9 @@ use wendao_nexus_flight::{
     search_rows_from_response,
 };
 use wendao_nexus_runtime::{
-    CheckpointRegistry, InMemoryNexusRegistry, LocalFileArtifactStore, NexusSyncRuntime,
-    NormalizationContext, PlainTextNormalizer, SourceRegistry,
+    BasicEvidenceJudge, CheckpointRegistry, EvidenceJudge, InMemoryNexusRegistry,
+    LocalFileArtifactStore, NexusSyncRuntime, NormalizationContext, PlainTextNormalizer,
+    SourceRegistry,
 };
 
 /// Serverless fixture harness for source-pack ingest and Flight command proof.
@@ -71,6 +72,11 @@ impl NexusFixtureHarness {
         artifact_root: impl AsRef<Path>,
     ) -> NexusResult<Self> {
         let pack = SourcePack::from_path(manifest_path)?;
+        let source_profiles = pack
+            .source_authority_profiles()
+            .into_iter()
+            .map(|profile| (profile.source_id.clone(), profile))
+            .collect::<BTreeMap<_, _>>();
         let artifact_root = artifact_root.as_ref().to_path_buf();
         let registry = InMemoryNexusRegistry::new();
         let artifact_store = LocalFileArtifactStore::open(&artifact_root)?;
@@ -153,6 +159,7 @@ impl NexusFixtureHarness {
             evidence_view: FixtureEvidenceView {
                 documents,
                 registry,
+                source_profiles,
             },
         });
 
@@ -211,7 +218,9 @@ impl NexusFlightCommandHandler for FixtureFlightHandler {
         request: ExternalKnowledgeSearchRequest,
     ) -> Result<Vec<FlightSearchResultRow>, NexusFlightHandlerError> {
         let response = self.evidence_view.search(request).await?;
-        search_rows_from_response(&response).map_err(handler_error)
+        let mut rows = search_rows_from_response(&response).map_err(handler_error)?;
+        self.evidence_view.apply_judgement(&mut rows)?;
+        Ok(rows)
     }
 
     async fn open(
@@ -256,6 +265,7 @@ impl NexusFlightCommandHandler for FixtureFlightHandler {
 struct FixtureEvidenceView {
     documents: Vec<ExternalKnowledgeDocument>,
     registry: InMemoryNexusRegistry,
+    source_profiles: BTreeMap<String, SourceAuthorityProfile>,
 }
 
 impl FixtureEvidenceView {
@@ -324,6 +334,45 @@ impl FixtureEvidenceView {
                     request.source_id, request.external_id
                 ))
             })
+    }
+
+    fn apply_judgement(
+        &self,
+        rows: &mut [FlightSearchResultRow],
+    ) -> Result<(), NexusFlightHandlerError> {
+        let judge = BasicEvidenceJudge::default();
+        for row in rows {
+            let Some(document) = self.document(&row.source_id, &row.external_id) else {
+                continue;
+            };
+            let Some(profile) = self.source_profiles.get(&row.source_id) else {
+                continue;
+            };
+            let judgement = judge.judge(document, profile);
+            row.trust_score = Some(judgement.final_trust_score);
+            row.freshness_score = Some(judgement.freshness_score);
+            row.source_updated_at = document.source_updated_at;
+            row.license_json = document
+                .license
+                .as_ref()
+                .map(serde_json::to_string)
+                .transpose()
+                .map_err(handler_error)?;
+            row.metadata_json = Some(
+                serde_json::to_string(&serde_json::json!({
+                    "source_metadata": document.metadata,
+                    "authority_judgement": judgement,
+                }))
+                .map_err(handler_error)?,
+            );
+        }
+        Ok(())
+    }
+
+    fn document(&self, source_id: &str, external_id: &str) -> Option<&ExternalKnowledgeDocument> {
+        self.documents
+            .iter()
+            .find(|document| document.source_id == source_id && document.external_id == external_id)
     }
 
     async fn status(

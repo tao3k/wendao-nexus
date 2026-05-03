@@ -3,6 +3,9 @@ mod business_scenario;
 
 #[path = "unit/external_database.rs"]
 mod external_database;
+#[cfg(feature = "live-probe")]
+#[path = "unit/external_database_probe.rs"]
+mod external_database_probe;
 
 #[path = "unit/local_corpus.rs"]
 mod local_corpus;

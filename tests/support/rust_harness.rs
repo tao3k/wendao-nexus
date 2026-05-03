@@ -57,6 +57,18 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
         )
         .with_verification_profile_hint(
             RustVerificationProfileHint::new(
+                "src/external_database_probe.rs",
+                [
+                    RustOwnerResponsibility::PublicApi,
+                    RustOwnerResponsibility::ExternalDependency,
+                ],
+            )
+            .with_rationale(
+                "external database probe is the feature-gated live validation surface",
+            ),
+        )
+        .with_verification_profile_hint(
+            RustVerificationProfileHint::new(
                 "src/local_corpus.rs",
                 [
                     RustOwnerResponsibility::PublicApi,
@@ -146,6 +158,18 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
             ),
         )
         .with_verification_profile_hint(
+            RustVerificationProfileHint::new(
+                "src/profile.rs",
+                [
+                    RustOwnerResponsibility::PublicApi,
+                    RustOwnerResponsibility::ExternalDependency,
+                ],
+            )
+            .with_rationale(
+                "source authority profiles and warnings are public evidence wire contracts",
+            ),
+        )
+        .with_verification_profile_hint(
             RustVerificationProfileHint::new("src/source.rs", [RustOwnerResponsibility::PublicApi])
                 .with_rationale("source identity and checkpoint types are public contracts"),
         )
@@ -217,6 +241,16 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
         .with_verification_profile_hint(
             RustVerificationProfileHint::new("src/hash.rs", [RustOwnerResponsibility::PublicApi])
                 .with_rationale("content hash helpers are public dedup contract support"),
+        )
+        .with_verification_profile_hint(
+            RustVerificationProfileHint::new(
+                "src/judge.rs",
+                [
+                    RustOwnerResponsibility::PublicApi,
+                    RustOwnerResponsibility::ExternalDependency,
+                ],
+            )
+            .with_rationale("basic evidence judge turns public documents and profiles into scores"),
         )
         .with_verification_profile_hint(
             RustVerificationProfileHint::new(
@@ -311,6 +345,10 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
         .with_verification_dependency_signal(RustVerificationDependencySignal::new(
             "serde_json",
             [RustOwnerResponsibility::PublicApi],
+        ))
+        .with_verification_dependency_signal(RustVerificationDependencySignal::new(
+            "reqwest",
+            [RustOwnerResponsibility::ExternalDependency],
         ))
         .with_verification_dependency_signal(RustVerificationDependencySignal::new(
             "sha2",

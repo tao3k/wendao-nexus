@@ -13,6 +13,8 @@ rust_lang_project_harness::rust_project_harness_source_gate!(
 pub mod artifact;
 /// Content hash helpers for dedup registries.
 pub mod hash;
+/// Deterministic basic evidence judgement.
+pub mod judge;
 /// Normalization contracts for raw source payloads.
 pub mod normalize;
 /// Registry traits and the in-memory registry implementation.
@@ -25,6 +27,7 @@ pub use artifact::{
     LocalFileArtifactStore,
 };
 pub use hash::sha256_content_hash;
+pub use judge::{BasicEvidenceJudge, EvidenceJudge};
 pub use normalize::{KnowledgeDocumentNormalizer, NormalizationContext, PlainTextNormalizer};
 pub use registry::{
     CheckpointRegistry, ContentHashRegistry, InMemoryNexusRegistry, JobRegistry, SourceRegistry,

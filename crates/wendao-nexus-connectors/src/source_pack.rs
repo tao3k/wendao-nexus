@@ -10,7 +10,7 @@ use wendao_nexus_core::{
     NexusSourceRecord, SOURCE_PACK_DISPLAY_NAME_METADATA_KEY, SOURCE_PACK_DOMAIN_METADATA_KEY,
     SOURCE_PACK_FIXTURE_PATH_METADATA_KEY, SOURCE_PACK_ID_METADATA_KEY,
     SOURCE_PACK_PRODUCER_METADATA_KEY, SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY,
-    SOURCE_PACK_VERSION_METADATA_KEY, SourceCapabilities, SourceDomain,
+    SOURCE_PACK_VERSION_METADATA_KEY, SourceAuthorityProfile, SourceCapabilities, SourceDomain,
 };
 
 use crate::local_corpus::{LocalCorpusConfig, LocalCorpusConnector};
@@ -24,6 +24,8 @@ pub struct SourcePackManifest {
     pub source_pack: SourcePackMetadata,
     #[serde(default)]
     pub sources: Vec<SourcePackSource>,
+    #[serde(default)]
+    pub source_profiles: Vec<SourceAuthorityProfile>,
 }
 
 /// Top-level source-pack identity and default policy.
@@ -124,6 +126,26 @@ pub struct SourcePack {
     connectors: Vec<LocalCorpusConnector>,
 }
 
+/// Validation report for a Nexus SourcePack export directory or manifest.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourcePackExportReport {
+    pub manifest_path: PathBuf,
+    pub pack_id: String,
+    pub schema_version: u32,
+    pub domain: SourceDomain,
+    pub source_count: usize,
+    pub enabled_source_count: usize,
+    pub fixture_paths: Vec<SourcePackExportFixture>,
+}
+
+/// One source payload file declared by a SourcePack export.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourcePackExportFixture {
+    pub source_id: String,
+    pub path: PathBuf,
+    pub enabled: bool,
+}
+
 impl SourcePack {
     pub fn from_path(path: impl AsRef<Path>) -> NexusResult<Self> {
         let path = path.as_ref();
@@ -191,6 +213,101 @@ impl SourcePack {
             .iter()
             .find(|source| source.source_id == source_id)
     }
+
+    pub fn source_authority_profiles(&self) -> Vec<SourceAuthorityProfile> {
+        self.manifest
+            .sources
+            .iter()
+            .map(|source| self.source_authority_profile_for_source(source))
+            .collect()
+    }
+
+    pub fn source_authority_profile(&self, source_id: &str) -> Option<SourceAuthorityProfile> {
+        self.source(source_id)
+            .map(|source| self.source_authority_profile_for_source(source))
+    }
+
+    fn source_authority_profile_for_source(
+        &self,
+        source: &SourcePackSource,
+    ) -> SourceAuthorityProfile {
+        self.manifest
+            .source_profiles
+            .iter()
+            .find(|profile| profile.source_id == source.source_id)
+            .cloned()
+            .unwrap_or_else(|| {
+                SourceAuthorityProfile::for_source_pack_source(
+                    source.source_id.clone(),
+                    self.manifest.source_pack.domain.clone(),
+                    source
+                        .authority_level
+                        .or(self.manifest.source_pack.authority_level)
+                        .unwrap_or(AuthorityLevel::Unknown),
+                    source
+                        .license
+                        .clone()
+                        .or_else(|| self.manifest.source_pack.license.clone()),
+                )
+            })
+    }
+}
+
+/// Validate a SourcePack export directory or manifest without creating live work.
+///
+/// Passing a directory expects `source_pack.toml` inside that directory. Passing
+/// a file validates the manifest directly. The validator checks the manifest
+/// contract, requires every declared `fixture_path` to point at a local file,
+/// and reuses `SourcePack::from_path` so enabled local-corpus sources remain
+/// executable by deterministic fixture harnesses.
+pub fn validate_source_pack_export(path: impl AsRef<Path>) -> NexusResult<SourcePackExportReport> {
+    let manifest_path = resolve_source_pack_export_manifest(path.as_ref());
+    let manifest = SourcePackManifest::from_path(&manifest_path)?;
+    let base_dir = manifest_base_dir(&manifest_path);
+
+    if manifest.sources.iter().all(|source| !source.enabled) {
+        return Err(NexusError::InvalidSource(format!(
+            "source pack `{}` has no enabled sources",
+            manifest.source_pack.id
+        )));
+    }
+
+    let mut fixture_paths = Vec::with_capacity(manifest.sources.len());
+    for source in &manifest.sources {
+        let fixture_path = base_dir.join(&source.fixture_path);
+        let metadata = fs::metadata(&fixture_path).map_err(|error| {
+            invalid_source(format!(
+                "source pack `{}` source `{}` fixture file `{}` is not readable: {error}",
+                manifest.source_pack.id,
+                source.source_id,
+                fixture_path.display()
+            ))
+        })?;
+        if !metadata.is_file() {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{}` source `{}` fixture path `{}` must be a file",
+                manifest.source_pack.id,
+                source.source_id,
+                fixture_path.display()
+            )));
+        }
+        fixture_paths.push(SourcePackExportFixture {
+            source_id: source.source_id.clone(),
+            path: fixture_path,
+            enabled: source.enabled,
+        });
+    }
+
+    let pack = SourcePack::from_path(&manifest_path)?;
+    Ok(SourcePackExportReport {
+        manifest_path,
+        pack_id: manifest.source_pack.id,
+        schema_version: manifest.source_pack.schema_version,
+        domain: manifest.source_pack.domain,
+        source_count: manifest.sources.len(),
+        enabled_source_count: pack.connectors().len(),
+        fixture_paths,
+    })
 }
 
 impl SourcePackManifest {
@@ -229,6 +346,20 @@ impl SourcePackManifest {
         validate_manifest(&manifest)?;
         Ok(manifest)
     }
+}
+
+fn resolve_source_pack_export_manifest(path: &Path) -> PathBuf {
+    if path.is_dir() {
+        path.join("source_pack.toml")
+    } else {
+        path.to_path_buf()
+    }
+}
+
+fn manifest_base_dir(path: &Path) -> PathBuf {
+    path.parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 fn validate_manifest(manifest: &SourcePackManifest) -> NexusResult<()> {
@@ -337,6 +468,46 @@ fn validate_manifest(manifest: &SourcePackManifest) -> NexusResult<()> {
                 "source pack `{}` contains duplicate source_id `{}`",
                 manifest.source_pack.id, source.source_id
             )));
+        }
+    }
+
+    let source_id_set = manifest
+        .sources
+        .iter()
+        .map(|source| source.source_id.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut profile_source_ids = BTreeSet::new();
+    for profile in &manifest.source_profiles {
+        if profile.source_id.trim().is_empty() {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{}` contains an empty source_profile source_id",
+                manifest.source_pack.id
+            )));
+        }
+        if profile.source_id != profile.source_id.trim() {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{}` source_profile source_id `{}` must not contain leading or trailing whitespace",
+                manifest.source_pack.id, profile.source_id
+            )));
+        }
+        if !source_id_set.contains(profile.source_id.as_str()) {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{}` source_profile references unknown source_id `{}`",
+                manifest.source_pack.id, profile.source_id
+            )));
+        }
+        if !profile_source_ids.insert(profile.source_id.as_str()) {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{}` contains duplicate source_profile for `{}`",
+                manifest.source_pack.id, profile.source_id
+            )));
+        }
+        if let Some(license_policy) = &profile.license_policy {
+            validate_optional_source_metadata_value(
+                &profile.source_id,
+                "source_profile license_policy",
+                license_policy,
+            )?;
         }
     }
 

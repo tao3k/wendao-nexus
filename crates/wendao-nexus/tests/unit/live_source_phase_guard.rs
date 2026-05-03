@@ -51,8 +51,9 @@ fn current_phase_has_no_live_source_client_or_scheduler_direct_dependencies() {
         let package = package_name(&content).unwrap_or_else(|| manifest.display().to_string());
         for dependency in FORBIDDEN_DIRECT_DEPENDENCIES {
             assert!(
-                !manifest_declares_dependency(&content, dependency),
-                "{package} must not declare `{dependency}` during the deterministic fixture phase"
+                !manifest_declares_dependency(&content, dependency)
+                    || allows_live_probe_dependency(&package, &content, dependency),
+                "{package} must not declare `{dependency}` outside the opt-in live-probe feature"
             );
         }
     }
@@ -109,6 +110,9 @@ fn current_phase_has_no_storage_search_cache_or_cocoindex_direct_dependencies() 
 fn current_phase_connector_sources_do_not_import_live_clients() {
     let root = workspace_root();
     for source_file in rust_sources(&root.join("crates/wendao-nexus-connectors/src")) {
+        if is_live_probe_source(&source_file) {
+            continue;
+        }
         let content = fs::read_to_string(&source_file).unwrap();
         for token in FORBIDDEN_CONNECTOR_SOURCE_TOKENS {
             assert!(
@@ -118,6 +122,22 @@ fn current_phase_connector_sources_do_not_import_live_clients() {
             );
         }
     }
+}
+
+fn allows_live_probe_dependency(package: &str, content: &str, dependency: &str) -> bool {
+    package == "wendao-nexus-connectors"
+        && dependency == "reqwest"
+        && content.contains("live-probe = [\"dep:reqwest\"]")
+        && content.lines().any(|line| {
+            let line = line.trim();
+            line.starts_with("reqwest") && line.contains("optional = true")
+        })
+}
+
+fn is_live_probe_source(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|file_name| file_name.to_str())
+        .is_some_and(|file_name| file_name == "external_database_probe.rs")
 }
 
 #[test]

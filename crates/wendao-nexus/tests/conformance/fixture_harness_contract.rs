@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use arrow_array::RecordBatch;
 use wendao_nexus::NexusFixtureHarness;
 use wendao_nexus_core::{
     AuthorityLevel, EvidenceConflictMode, ExternalKnowledgeCompareRequest,
@@ -16,10 +17,13 @@ use wendao_nexus_runtime::{ArtifactKind, ArtifactStore};
 
 use crate::fixture_flight_support::{
     agriculture_pack_fixture_manifest, artifact_dir, customer_private_pack_fixture_manifest,
-    legal_pack_fixture_manifest, source_pack_fixture_manifest,
+    legal_pack_fixture_manifest, real_medical_pubmed_snapshot_fixture_manifest,
+    real_wikipedia_science_subset_fixture_manifest, source_pack_fixture_manifest,
 };
 
-use super::support::{assert_batch_route, bool_column, string_column, string_values};
+use super::support::{
+    assert_batch_route, bool_column, compact_batch_snapshot, string_column, string_values,
+};
 
 #[tokio::test]
 async fn serverless_fixture_harness_conforms_for_vertical_packs() {
@@ -36,6 +40,7 @@ async fn serverless_fixture_harness_conforms_for_vertical_packs() {
         let mut search = ExternalKnowledgeSearchRequest::new(case.query);
         search.sources = vec![case.source_id.to_string()];
         search.trust_policy = TrustPolicy::authority_at_least(case.search_authority);
+        search.trust_policy.allow_community_sources = case.allow_community_sources;
         search.limit = 10;
         let search_batch = harness
             .handle_encoded_command(NexusFlightCommand::Search(search).encode_json().unwrap())
@@ -50,6 +55,12 @@ async fn serverless_fixture_harness_conforms_for_vertical_packs() {
             case.source_id,
             case.evidence_kind
         );
+        let search_snapshot = compact_batch_snapshot(&search_batch);
+        assert!(search_snapshot.contains("trust_score="));
+        assert!(!search_snapshot.contains("trust_score=<null>"));
+        assert!(search_snapshot.contains("freshness_score="));
+        assert!(!search_snapshot.contains("freshness_score=<null>"));
+        assert!(search_snapshot.contains("authority_judgement"));
 
         let open_batch = harness
             .handle_encoded_command(
@@ -92,7 +103,11 @@ async fn serverless_fixture_harness_conforms_for_vertical_packs() {
                     claim: case.compare_claim.to_string(),
                     sources: vec![case.source_id.to_string()],
                     mode: EvidenceConflictMode::EvidenceConflictCheck,
-                    trust_policy: TrustPolicy::authority_at_least(case.compare_authority),
+                    trust_policy: {
+                        let mut policy = TrustPolicy::authority_at_least(case.compare_authority);
+                        policy.allow_community_sources = case.allow_community_sources;
+                        policy
+                    },
                 })
                 .encode_json()
                 .unwrap(),
@@ -107,6 +122,10 @@ async fn serverless_fixture_harness_conforms_for_vertical_packs() {
         assert_eq!(
             bool_column(&compare_batch, "insufficient_authority").value(0),
             case.compare_verdict == "insufficient_authority"
+        );
+        assert_eq!(
+            compare_snapshot(&compare_batch),
+            case.expected_snapshot("expected_compare.snap")
         );
 
         assert_normalized_artifact_replays(&harness, case.source_id, case.external_id).await;
@@ -208,6 +227,7 @@ struct HarnessCase {
     evidence_kind: &'static str,
     metadata_probe: &'static str,
     search_authority: AuthorityLevel,
+    allow_community_sources: bool,
     compare_claim: &'static str,
     compare_authority: AuthorityLevel,
     compare_verdict: &'static str,
@@ -217,9 +237,18 @@ impl HarnessCase {
     fn manifest(&self) -> PathBuf {
         (self.manifest)()
     }
+
+    fn expected_snapshot(&self, file_name: &str) -> String {
+        let manifest_path = self.manifest();
+        let pack_root = manifest_path.parent().unwrap();
+        std::fs::read_to_string(pack_root.join(file_name))
+            .unwrap()
+            .trim_end()
+            .to_string()
+    }
 }
 
-fn harness_cases() -> [HarnessCase; 4] {
+fn harness_cases() -> [HarnessCase; 6] {
     [
         HarnessCase {
             manifest: source_pack_fixture_manifest,
@@ -229,6 +258,7 @@ fn harness_cases() -> [HarnessCase; 4] {
             evidence_kind: "trial_result",
             metadata_probe: "10.1000/demo1",
             search_authority: AuthorityLevel::PeerReviewed,
+            allow_community_sources: false,
             compare_claim: "GLP-1 cardiovascular",
             compare_authority: AuthorityLevel::PeerReviewed,
             compare_verdict: "evidence_available",
@@ -241,6 +271,7 @@ fn harness_cases() -> [HarnessCase; 4] {
             evidence_kind: "customer_internal_note",
             metadata_probe: "tenant_id",
             search_authority: AuthorityLevel::CustomerInternal,
+            allow_community_sources: false,
             compare_claim: "QA reviewer approval",
             compare_authority: AuthorityLevel::Official,
             compare_verdict: "insufficient_authority",
@@ -253,6 +284,7 @@ fn harness_cases() -> [HarnessCase; 4] {
             evidence_kind: "law_clause",
             metadata_probe: "Article 12",
             search_authority: AuthorityLevel::Official,
+            allow_community_sources: false,
             compare_claim: "retain audit evidence",
             compare_authority: AuthorityLevel::Official,
             compare_verdict: "evidence_available",
@@ -265,9 +297,58 @@ fn harness_cases() -> [HarnessCase; 4] {
             evidence_kind: "market_signal",
             metadata_probe: "corn",
             search_authority: AuthorityLevel::Official,
+            allow_community_sources: false,
             compare_claim: "dry seven-day weather",
             compare_authority: AuthorityLevel::Official,
             compare_verdict: "evidence_available",
         },
+        HarnessCase {
+            manifest: real_medical_pubmed_snapshot_fixture_manifest,
+            source_id: "real-pubmed-snapshot",
+            external_id: "pubmed/PMID:37952131",
+            query: "semaglutide cardiovascular",
+            evidence_kind: "trial_result",
+            metadata_probe: "37952131",
+            search_authority: AuthorityLevel::PeerReviewed,
+            allow_community_sources: false,
+            compare_claim: "semaglutide cardiovascular",
+            compare_authority: AuthorityLevel::PeerReviewed,
+            compare_verdict: "stale_evidence",
+        },
+        HarnessCase {
+            manifest: real_wikipedia_science_subset_fixture_manifest,
+            source_id: "real-wikipedia-science",
+            external_id: "wikipedia/CRISPR_gene_editing",
+            query: "CRISPR gene editing",
+            evidence_kind: "definition",
+            metadata_probe: "1350930656",
+            search_authority: AuthorityLevel::Community,
+            allow_community_sources: true,
+            compare_claim: "CRISPR gene editing",
+            compare_authority: AuthorityLevel::Community,
+            compare_verdict: "evidence_available",
+        },
     ]
+}
+
+fn compare_snapshot(batch: &RecordBatch) -> String {
+    let claims = string_column(batch, "claim");
+    let verdicts = string_column(batch, "verdict");
+    let conflicts = bool_column(batch, "conflict_detected");
+    let insufficient_authority = bool_column(batch, "insufficient_authority");
+    let stale_evidence = bool_column(batch, "stale_evidence");
+
+    (0..batch.num_rows())
+        .map(|row| {
+            format!(
+                "{}|{}|{}|{}|{}",
+                claims.value(row),
+                verdicts.value(row),
+                conflicts.value(row),
+                insufficient_authority.value(row),
+                stale_evidence.value(row)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }

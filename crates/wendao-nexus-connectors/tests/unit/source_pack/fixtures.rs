@@ -1,8 +1,15 @@
 use std::path::PathBuf;
 
 pub(super) fn fixture_manifest() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/source_packs/medical_baseline/source_pack.toml")
+    medical_baseline_pack_root().join("source_pack.toml")
+}
+
+pub(super) fn medical_baseline_pack_root() -> PathBuf {
+    source_pack_root("medical_baseline")
+}
+
+pub(super) fn customer_private_pack_root() -> PathBuf {
+    source_pack_root("customer_private_sop")
 }
 
 pub(super) fn json_fixture_manifest() -> PathBuf {
@@ -61,4 +68,8 @@ pub(super) fn empty_source_license_manifest() -> PathBuf {
 fn flat_source_pack_fixture(file_name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join(format!("tests/fixtures/source_packs/{file_name}"))
+}
+
+fn source_pack_root(pack: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/source_packs/{pack}"))
 }

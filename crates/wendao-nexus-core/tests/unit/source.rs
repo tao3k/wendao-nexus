@@ -1,9 +1,10 @@
 use wendao_nexus_core::{
-    EvidenceKind, KnowledgeSourceKind, NexusSourceRecord, SOURCE_PACK_DISPLAY_NAME_METADATA_KEY,
-    SOURCE_PACK_DOMAIN_METADATA_KEY, SOURCE_PACK_FIXTURE_PATH_METADATA_KEY,
-    SOURCE_PACK_ID_METADATA_KEY, SOURCE_PACK_PRODUCER_METADATA_KEY,
-    SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY, SOURCE_PACK_VERSION_METADATA_KEY, SourceCapabilities,
-    SourceCheckpoint, SourceCursor, SourceDomain, SourceItemRef,
+    AuthorityLevel, EvidenceKind, EvidenceWarning, IdentifierKind, KnowledgeSourceKind,
+    NexusSourceRecord, SOURCE_PACK_DISPLAY_NAME_METADATA_KEY, SOURCE_PACK_DOMAIN_METADATA_KEY,
+    SOURCE_PACK_FIXTURE_PATH_METADATA_KEY, SOURCE_PACK_ID_METADATA_KEY,
+    SOURCE_PACK_PRODUCER_METADATA_KEY, SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY,
+    SOURCE_PACK_VERSION_METADATA_KEY, SourceAuthorityProfile, SourceCapabilities, SourceCheckpoint,
+    SourceCursor, SourceDomain, SourceItemRef,
 };
 
 #[test]
@@ -53,6 +54,69 @@ fn source_domain_wire_labels_and_default_are_stable() {
         serde_json::from_str::<SourceDomain>(r#""customer_private""#).unwrap(),
         SourceDomain::CustomerPrivate
     );
+}
+
+#[test]
+fn identifier_kind_wire_labels_are_stable() {
+    assert_eq!(IdentifierKind::Doi.as_str(), "doi");
+    assert_eq!(IdentifierKind::RevisionId.as_str(), "revision_id");
+    assert_eq!(
+        IdentifierKind::from_label("custom_identifier"),
+        IdentifierKind::Other("custom_identifier".to_string())
+    );
+    assert_eq!(
+        IdentifierKind::Other("custom_identifier".to_string()).wire_label(),
+        "other:custom_identifier"
+    );
+    assert_eq!(
+        serde_json::to_string(&IdentifierKind::CustomerDocId).unwrap(),
+        r#""customer_doc_id""#
+    );
+    assert_eq!(
+        serde_json::from_str::<IdentifierKind>(r#""pmid""#).unwrap(),
+        IdentifierKind::Pmid
+    );
+}
+
+#[test]
+fn evidence_warning_wire_labels_are_stable() {
+    assert_eq!(
+        EvidenceWarning::MissingRequiredIdentifier(IdentifierKind::Doi).wire_label(),
+        "missing_required_identifier:doi"
+    );
+    assert_eq!(
+        EvidenceWarning::from_label("missing_required_identifier:article"),
+        EvidenceWarning::MissingRequiredIdentifier(IdentifierKind::Article)
+    );
+    assert_eq!(
+        serde_json::to_string(&EvidenceWarning::UnknownLicense).unwrap(),
+        r#""unknown_license""#
+    );
+}
+
+#[test]
+fn source_authority_profile_defaults_are_domain_aware() {
+    let profile = SourceAuthorityProfile::for_source_pack_source(
+        "pubmed-probe",
+        SourceDomain::Medical,
+        AuthorityLevel::PeerReviewed,
+        Some("PubMed metadata".to_string()),
+    );
+
+    assert_eq!(profile.source_id, "pubmed-probe");
+    assert_eq!(profile.domain, SourceDomain::Medical);
+    assert_eq!(profile.authority_level, AuthorityLevel::PeerReviewed);
+    assert!(profile.expected_identifiers.contains(&IdentifierKind::Pmid));
+    assert!(profile.expected_identifiers.contains(&IdentifierKind::Doi));
+    assert!(
+        profile
+            .expected_evidence_kinds
+            .contains(&EvidenceKind::TrialResult)
+    );
+    assert_eq!(profile.max_staleness_days, Some(1825));
+    assert!(profile.requires_published_at);
+    assert!(profile.requires_canonical_uri);
+    assert!(!profile.requires_revision_or_version);
 }
 
 #[test]

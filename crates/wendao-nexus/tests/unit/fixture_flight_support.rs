@@ -78,6 +78,18 @@ pub(crate) fn agriculture_pack_fixture_manifest() -> PathBuf {
     )
 }
 
+pub(crate) fn real_medical_pubmed_snapshot_fixture_manifest() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../wendao-nexus-connectors/tests/fixtures/source_packs/real_medical_pubmed_snapshot/source_pack.toml",
+    )
+}
+
+pub(crate) fn real_wikipedia_science_subset_fixture_manifest() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../wendao-nexus-connectors/tests/fixtures/source_packs/real_wikipedia_science_subset/source_pack.toml",
+    )
+}
+
 pub(crate) fn artifact_dir(test_name: &str) -> PathBuf {
     std::env::temp_dir().join(format!("wendao-nexus-{test_name}-{}", uuid::Uuid::new_v4()))
 }

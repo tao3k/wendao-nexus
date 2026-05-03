@@ -13,6 +13,9 @@ rust_lang_project_harness::rust_project_harness_source_gate!(
 pub mod customer_corpus;
 /// External database and API-feed connector boundary.
 pub mod external_database;
+/// Opt-in live probe connector.
+#[cfg(feature = "live-probe")]
+pub mod external_database_probe;
 /// File-backed deterministic corpus connector.
 pub mod local_corpus;
 /// PubMed connector boundary.
@@ -29,11 +32,14 @@ pub use external_database::{
     ExternalDatabaseAccessMode, ExternalDatabaseAuthMode, ExternalDatabaseConfig,
     ExternalDatabaseConnector,
 };
+#[cfg(feature = "live-probe")]
+pub use external_database_probe::{ExternalDatabaseProbeConfig, ExternalDatabaseProbeConnector};
 pub use local_corpus::{LocalCorpusConfig, LocalCorpusConnector};
 pub use pubmed::{PubMedConfig, PubMedConnector};
 pub use source_pack::{
-    SOURCE_PACK_MANIFEST_SCHEMA_VERSION, SourcePack, SourcePackManifest, SourcePackMetadata,
-    SourcePackSource,
+    SOURCE_PACK_MANIFEST_SCHEMA_VERSION, SourcePack, SourcePackExportFixture,
+    SourcePackExportReport, SourcePackManifest, SourcePackMetadata, SourcePackSource,
+    validate_source_pack_export,
 };
 pub use static_connector::StaticKnowledgeConnector;
 pub use wikipedia::{WikipediaConfig, WikipediaConnector};

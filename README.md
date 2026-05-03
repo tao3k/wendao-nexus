@@ -152,10 +152,15 @@ connector is fixture-only: its minimal frontmatter handling is not a production
 Markdown parser and must not grow into document extraction ownership.
 `SourcePack` loads TOML/JSON manifests that group multiple local corpus sources
 with source kind, authority, schema version, producer, version, display name,
-and license metadata, and can emit source catalog records for the Wendao-side
-registry boundary. Live API clients are deliberately left as explicit
-unsupported paths until source-specific rate limit, auth, and contract tests are
-added.
+license metadata, and optional source authority profiles, and can emit source
+catalog records for the Wendao-side registry boundary.
+`validate_source_pack_export` checks the same directory-first handoff shape that
+customer scripts, private ETL jobs, or future optional exporters must produce,
+while still avoiding jobs, stores, and search ownership. Production live API
+clients are deliberately left as explicit unsupported paths until
+source-specific rate limit, auth, retry, checkpoint, and contract tests are
+added. The only live path in this repo is the feature-gated `live-probe`
+connector, which is off by default and intended for bounded manual validation.
 Unsupported live stubs do not advertise executable discover/fetch/delta or live
 query capabilities. Current phase guards reject direct live-client dependencies
 and connector-source imports for live clients, while source-pack manifests
@@ -183,8 +188,8 @@ mount the provider.
 
 ## Current Engineering Sequence
 
-Nexus should prove its own deterministic protocol runtime before real external
-sources or Wendao integration are added. The current sequence is:
+Nexus has moved from deterministic fixture closure into the Real Source Probe
+phase. The sequence remains bounded:
 
 1. Contract snapshots for routes, headers, command envelopes, Arrow schemas, and
    batch builders.
@@ -195,11 +200,18 @@ sources or Wendao integration are added. The current sequence is:
 4. Registry traits, normalized-document handoff, and artifact store.
 5. Serverless fixture Flight harness/client validation.
 6. External database/API connector contracts.
-7. Wendao-side adapter or mount wiring.
+7. Recorded real-source snapshots that remain CI-safe and replayable.
+8. Rust basic authority judgement over `SourceAuthorityProfile`.
+9. Feature-gated opt-in live probe validation for manually requested network
+   checks.
+10. Julia Evidence Flight contract documentation.
+11. Wendao-side adapter or mount wiring.
 
-Live PubMed, Wikipedia, legal, news, paid database, and Wendao adapter work
-should wait until the deterministic connector/runtime/schema path is repeatably
-validated. Current crates intentionally carry no HTTP client dependency.
+Production PubMed, Wikipedia, legal, news, paid database, and Wendao adapter
+work still wait. Default builds remain free of live client behavior; `reqwest`
+is allowed only as an optional `wendao-nexus-connectors` dependency behind the
+`live-probe` feature and live probe tests skip unless
+`WENDAO_NEXUS_RUN_LIVE_PROBE=1`.
 
 ## Business Scenario First
 
@@ -213,13 +225,16 @@ The first commercial fixtures are vertical source packs:
   amendment version, and `law_clause` evidence kind;
 - agriculture market signals with region, crop, price date, weather window,
   supply signal, and `market_signal` evidence kind.
+- recorded real-source snapshots for PubMed metadata and a Wikipedia science
+  subset, using real identifiers and canonical URIs while keeping CI offline and
+  avoiding redistributing restricted full text.
 
 Nexus keeps these as deterministic local corpus input so business-critical
 knowledge paths can be validated before any live customer database, CRM,
 document system, external market API, CocoIndex exporter, or Wendao adapter is
 added.
 Positive business packs use directory-first fixtures with `source_pack.toml`,
-local JSONL documents, and golden text snapshots for search/open/status-shaped
+local JSONL documents, and golden text snapshots for search/open/status/compare
 contract rows. Flat manifests remain for negative validation cases.
 
 ## CocoIndex Positioning

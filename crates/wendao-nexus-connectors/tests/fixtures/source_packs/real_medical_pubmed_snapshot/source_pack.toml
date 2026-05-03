@@ -1,0 +1,28 @@
+[source_pack]
+id = "real-medical-pubmed-snapshot"
+version = "2026.05-recorded"
+schema_version = 1
+domain = "medical"
+display_name = "Recorded PubMed Metadata Snapshot"
+producer = "wendao-nexus-real-source-probe"
+authority_level = "PeerReviewed"
+license = "PubMed bibliographic metadata"
+
+[[sources]]
+source_id = "real-pubmed-snapshot"
+kind = "PubMed"
+fixture_path = "documents.jsonl"
+display_name = "Recorded PubMed Snapshot"
+license = "PubMed bibliographic metadata"
+authority_level = "PeerReviewed"
+
+[[source_profiles]]
+source_id = "real-pubmed-snapshot"
+domain = "medical"
+authority_level = "PeerReviewed"
+expected_identifiers = ["pmid", "doi"]
+expected_evidence_kinds = ["trial_result", "review_article"]
+license_policy = "PubMed bibliographic metadata"
+max_staleness_days = 1825
+requires_published_at = true
+requires_canonical_uri = true

@@ -1,0 +1,28 @@
+[source_pack]
+id = "real-wikipedia-science-subset"
+version = "2026.05-recorded"
+schema_version = 1
+domain = "wikipedia_subset"
+display_name = "Recorded Wikipedia Science Subset"
+producer = "wendao-nexus-real-source-probe"
+authority_level = "Community"
+license = "CC BY-SA 4.0"
+
+[[sources]]
+source_id = "real-wikipedia-science"
+kind = "Wikipedia"
+fixture_path = "documents.jsonl"
+display_name = "Recorded Wikipedia Science Snapshot"
+license = "CC BY-SA 4.0"
+authority_level = "Community"
+
+[[source_profiles]]
+source_id = "real-wikipedia-science"
+domain = "wikipedia_subset"
+authority_level = "Community"
+expected_identifiers = ["revision_id", "url"]
+expected_evidence_kinds = ["definition", "document"]
+license_policy = "CC BY-SA 4.0"
+max_staleness_days = 365
+requires_canonical_uri = true
+requires_revision_or_version = true

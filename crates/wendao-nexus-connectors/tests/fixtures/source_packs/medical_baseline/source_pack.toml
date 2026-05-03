@@ -21,3 +21,14 @@ source_id = "demo-guideline"
 kind = "MedicalJournal"
 fixture_path = "guideline.jsonl"
 authority_level = "Curated"
+
+[[source_profiles]]
+source_id = "demo-pubmed"
+domain = "medical"
+authority_level = "PeerReviewed"
+expected_identifiers = ["pmid", "doi"]
+expected_evidence_kinds = ["trial_result"]
+license_policy = "PubMed Fixture License"
+max_staleness_days = 1825
+requires_published_at = true
+requires_canonical_uri = true

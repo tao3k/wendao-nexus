@@ -2,8 +2,8 @@ use wendao_nexus_connectors::{
     SOURCE_PACK_MANIFEST_SCHEMA_VERSION, SourcePack, SourcePackManifest,
 };
 use wendao_nexus_core::{
-    AuthorityLevel, KnowledgeSourceConnector, KnowledgeSourceKind, SOURCE_METADATA_PMID_KEY,
-    SourceDomain, SourceItemRef,
+    AuthorityLevel, IdentifierKind, KnowledgeSourceConnector, KnowledgeSourceKind,
+    SOURCE_METADATA_PMID_KEY, SourceDomain, SourceItemRef,
 };
 
 use super::fixtures::{fixture_manifest, json_fixture_manifest};
@@ -28,6 +28,7 @@ async fn source_pack_loads_manifest_and_local_corpus_connectors() {
         Some(AuthorityLevel::Curated)
     );
     assert_eq!(pack.connectors().len(), 2);
+    assert_eq!(pack.manifest().source_profiles.len(), 1);
 
     let pubmed = pack.connector("demo-pubmed").unwrap();
     assert_eq!(pubmed.source_kind(), KnowledgeSourceKind::PubMed);
@@ -69,6 +70,35 @@ async fn source_pack_loads_manifest_and_local_corpus_connectors() {
         guideline.canonical_uri,
         "local-corpus://demo-guideline/medical/guideline-demo"
     );
+}
+
+#[test]
+fn source_pack_resolves_explicit_and_default_authority_profiles() {
+    let pack = SourcePack::from_path(fixture_manifest()).unwrap();
+
+    let pubmed = pack.source_authority_profile("demo-pubmed").unwrap();
+    assert_eq!(pubmed.source_id, "demo-pubmed");
+    assert_eq!(pubmed.domain, SourceDomain::Medical);
+    assert_eq!(pubmed.authority_level, AuthorityLevel::PeerReviewed);
+    assert_eq!(
+        pubmed.license_policy.as_deref(),
+        Some("PubMed Fixture License")
+    );
+    assert!(pubmed.expected_identifiers.contains(&IdentifierKind::Pmid));
+    assert!(pubmed.expected_identifiers.contains(&IdentifierKind::Doi));
+
+    let guideline = pack.source_authority_profile("demo-guideline").unwrap();
+    assert_eq!(guideline.source_id, "demo-guideline");
+    assert_eq!(guideline.domain, SourceDomain::Medical);
+    assert_eq!(guideline.authority_level, AuthorityLevel::Curated);
+    assert_eq!(guideline.license_policy.as_deref(), Some("Fixture License"));
+    assert!(
+        guideline
+            .expected_identifiers
+            .contains(&IdentifierKind::Pmid)
+    );
+
+    assert_eq!(pack.source_authority_profiles().len(), 2);
 }
 
 #[test]

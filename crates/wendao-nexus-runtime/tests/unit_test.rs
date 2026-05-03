@@ -7,6 +7,9 @@ mod business_scenario;
 #[path = "unit/hash.rs"]
 mod hash;
 
+#[path = "unit/judge.rs"]
+mod judge;
+
 #[path = "unit/normalize.rs"]
 mod normalize;
 
