@@ -246,6 +246,34 @@ fn source_pack_rejects_whitespace_padded_producer() {
     assert!(error.contains("producer ` fixture-builder ` must not contain"));
 }
 
+#[test]
+fn source_pack_rejects_whitespace_padded_canonical_uri_prefix() {
+    let error = SourcePackManifest::from_path(whitespace_canonical_uri_prefix_manifest())
+        .unwrap_err()
+        .to_string();
+
+    assert!(error.contains("canonical_uri_prefix ` https://pubmed.ncbi.nlm.nih.gov/ `"));
+    assert!(error.contains("must not contain leading or trailing whitespace"));
+}
+
+#[test]
+fn source_pack_rejects_empty_display_name() {
+    let error = SourcePackManifest::from_path(empty_display_name_manifest())
+        .unwrap_err()
+        .to_string();
+
+    assert!(error.contains("display_name must not be empty"));
+}
+
+#[test]
+fn source_pack_rejects_whitespace_padded_license() {
+    let error = SourcePackManifest::from_path(whitespace_license_manifest())
+        .unwrap_err()
+        .to_string();
+
+    assert!(error.contains("license ` Fixture License ` must not contain"));
+}
+
 fn fixture_manifest() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/source_packs/medical_demo_pack.toml")
@@ -281,4 +309,16 @@ fn unsupported_schema_version_manifest() -> PathBuf {
 
 fn whitespace_producer_manifest() -> PathBuf {
     fixture_manifest().with_file_name("whitespace_producer.toml")
+}
+
+fn whitespace_canonical_uri_prefix_manifest() -> PathBuf {
+    fixture_manifest().with_file_name("whitespace_canonical_uri_prefix.toml")
+}
+
+fn empty_display_name_manifest() -> PathBuf {
+    fixture_manifest().with_file_name("empty_display_name.toml")
+}
+
+fn whitespace_license_manifest() -> PathBuf {
+    fixture_manifest().with_file_name("whitespace_license.toml")
 }

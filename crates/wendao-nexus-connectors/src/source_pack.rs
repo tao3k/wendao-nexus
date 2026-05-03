@@ -257,18 +257,13 @@ fn validate_manifest(manifest: &SourcePackManifest) -> NexusResult<()> {
         )));
     }
     if let Some(producer) = &manifest.source_pack.producer {
-        if producer.trim().is_empty() {
-            return Err(NexusError::InvalidSource(format!(
-                "source pack `{}` producer must not be empty",
-                manifest.source_pack.id
-            )));
-        }
-        if producer != producer.trim() {
-            return Err(NexusError::InvalidSource(format!(
-                "source pack `{}` producer `{producer}` must not contain leading or trailing whitespace",
-                manifest.source_pack.id
-            )));
-        }
+        validate_optional_metadata_value(&manifest.source_pack.id, "producer", producer)?;
+    }
+    if let Some(display_name) = &manifest.source_pack.display_name {
+        validate_optional_metadata_value(&manifest.source_pack.id, "display_name", display_name)?;
+    }
+    if let Some(license) = &manifest.source_pack.license {
+        validate_optional_metadata_value(&manifest.source_pack.id, "license", license)?;
     }
     if manifest.sources.is_empty() {
         return Err(NexusError::InvalidSource(format!(
@@ -302,6 +297,20 @@ fn validate_manifest(manifest: &SourcePackManifest) -> NexusResult<()> {
                 source.source_id
             )));
         }
+        if let Some(canonical_uri_prefix) = &source.canonical_uri_prefix {
+            if canonical_uri_prefix.trim().is_empty() {
+                return Err(NexusError::InvalidSource(format!(
+                    "source `{}` canonical_uri_prefix must not be empty",
+                    source.source_id
+                )));
+            }
+            if canonical_uri_prefix != canonical_uri_prefix.trim() {
+                return Err(NexusError::InvalidSource(format!(
+                    "source `{}` canonical_uri_prefix `{canonical_uri_prefix}` must not contain leading or trailing whitespace",
+                    source.source_id
+                )));
+            }
+        }
     }
 
     let mut source_ids = BTreeSet::new();
@@ -323,6 +332,24 @@ fn default_enabled() -> bool {
 
 fn default_schema_version() -> u32 {
     SOURCE_PACK_MANIFEST_SCHEMA_VERSION
+}
+
+fn validate_optional_metadata_value(
+    pack_id: &str,
+    field_name: &str,
+    value: &str,
+) -> NexusResult<()> {
+    if value.trim().is_empty() {
+        return Err(NexusError::InvalidSource(format!(
+            "source pack `{pack_id}` {field_name} must not be empty"
+        )));
+    }
+    if value != value.trim() {
+        return Err(NexusError::InvalidSource(format!(
+            "source pack `{pack_id}` {field_name} `{value}` must not contain leading or trailing whitespace"
+        )));
+    }
+    Ok(())
 }
 
 fn invalid_source(message: String) -> NexusError {

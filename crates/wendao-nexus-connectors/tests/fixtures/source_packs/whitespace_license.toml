@@ -1,0 +1,9 @@
+[source_pack]
+id = "whitespace-license-pack"
+version = "0.1.0"
+license = " Fixture License "
+
+[[sources]]
+source_id = "demo-pubmed"
+kind = "PubMed"
+fixture_path = "../corpus/medical/articles.jsonl"
