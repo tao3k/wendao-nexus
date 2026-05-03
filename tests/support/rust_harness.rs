@@ -261,6 +261,19 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
             )
             .with_rationale("sync runtime orchestrates connectors, registries, and normalized evidence handoff"),
         )
+        .with_verification_profile_hint(
+            RustVerificationProfileHint::new(
+                "src/fixture_harness.rs",
+                [
+                    RustOwnerResponsibility::PublicApi,
+                    RustOwnerResponsibility::ExternalDependency,
+                    RustOwnerResponsibility::AvailabilityCritical,
+                ],
+            )
+            .with_rationale(
+                "fixture harness composes SourcePack ingest, artifact replay, and Flight batches before Wendao adapter mounting",
+            ),
+        )
         .with_verification_dependency_signal(RustVerificationDependencySignal::new(
             "arrow-array",
             [
@@ -339,6 +352,13 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
         ))
         .with_verification_dependency_signal(RustVerificationDependencySignal::new(
             "wendao-nexus-core",
+            [
+                RustOwnerResponsibility::ExternalDependency,
+                RustOwnerResponsibility::PublicApi,
+            ],
+        ))
+        .with_verification_dependency_signal(RustVerificationDependencySignal::new(
+            "wendao-nexus-connectors",
             [
                 RustOwnerResponsibility::ExternalDependency,
                 RustOwnerResponsibility::PublicApi,

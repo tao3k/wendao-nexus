@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use wendao_nexus::NexusFixtureHarness;
 use wendao_nexus_core::{
     AuthorityLevel, EvidenceConflictMode, ExternalKnowledgeCompareRequest,
     ExternalKnowledgeDocument, ExternalKnowledgeOpenRequest, ExternalKnowledgeSearchRequest,
@@ -14,9 +15,8 @@ use wendao_nexus_flight::{
 use wendao_nexus_runtime::{ArtifactKind, ArtifactStore};
 
 use crate::fixture_flight_support::{
-    FixtureFlightHarness, agriculture_pack_fixture_manifest,
-    customer_private_pack_fixture_manifest, legal_pack_fixture_manifest,
-    source_pack_fixture_manifest,
+    agriculture_pack_fixture_manifest, artifact_dir, customer_private_pack_fixture_manifest,
+    legal_pack_fixture_manifest, source_pack_fixture_manifest,
 };
 
 use super::support::{assert_batch_route, bool_column, string_column, string_values};
@@ -24,14 +24,21 @@ use super::support::{assert_batch_route, bool_column, string_column, string_valu
 #[tokio::test]
 async fn serverless_fixture_harness_conforms_for_vertical_packs() {
     for case in harness_cases() {
-        let harness = FixtureFlightHarness::build_with_manifest(case.manifest()).await;
+        let artifact_root = artifact_dir(case.source_id);
+        let harness = NexusFixtureHarness::load_source_pack(case.manifest(), &artifact_root)
+            .await
+            .unwrap();
+        assert_eq!(
+            harness.ingest_report().ingested_documents,
+            harness.ingest_report().normalized_artifacts
+        );
 
         let mut search = ExternalKnowledgeSearchRequest::new(case.query);
         search.sources = vec![case.source_id.to_string()];
         search.trust_policy = TrustPolicy::authority_at_least(case.search_authority);
         search.limit = 10;
         let search_batch = harness
-            .handle_command_json_result(NexusFlightCommand::Search(search).encode_json().unwrap())
+            .handle_encoded_command(NexusFlightCommand::Search(search).encode_json().unwrap())
             .await
             .unwrap();
         assert_batch_route(&search_batch, EXTERNAL_KNOWLEDGE_SEARCH_ROUTE);
@@ -45,7 +52,7 @@ async fn serverless_fixture_harness_conforms_for_vertical_packs() {
         );
 
         let open_batch = harness
-            .handle_command_json_result(
+            .handle_encoded_command(
                 NexusFlightCommand::Open(ExternalKnowledgeOpenRequest {
                     source_id: case.source_id.to_string(),
                     external_id: case.external_id.to_string(),
@@ -65,7 +72,7 @@ async fn serverless_fixture_harness_conforms_for_vertical_packs() {
         );
 
         let status_batch = harness
-            .handle_command_json_result(
+            .handle_encoded_command(
                 NexusFlightCommand::Status(NexusFlightStatusRequest::all_sources())
                     .encode_json()
                     .unwrap(),
@@ -80,7 +87,7 @@ async fn serverless_fixture_harness_conforms_for_vertical_packs() {
         );
 
         let compare_batch = harness
-            .handle_command_json_result(
+            .handle_encoded_command(
                 NexusFlightCommand::Compare(ExternalKnowledgeCompareRequest {
                     claim: case.compare_claim.to_string(),
                     sources: vec![case.source_id.to_string()],
@@ -103,16 +110,20 @@ async fn serverless_fixture_harness_conforms_for_vertical_packs() {
         );
 
         assert_normalized_artifact_replays(&harness, case.source_id, case.external_id).await;
-        harness.cleanup();
+        cleanup_dir(&artifact_root);
     }
 }
 
 #[tokio::test]
 async fn fixture_provider_reports_protocol_and_handler_errors_conformantly() {
-    let harness = FixtureFlightHarness::build().await;
+    let artifact_root = artifact_dir("fixture_provider_error_contract");
+    let harness =
+        NexusFixtureHarness::load_source_pack(source_pack_fixture_manifest(), &artifact_root)
+            .await
+            .unwrap();
 
     let schema_error = harness
-        .handle_command_json_result(
+        .handle_encoded_command(
             br#"{"schema_version":2,"route":"/knowledge/external/status","payload":{"sources":[]}}"#
                 .to_vec(),
         )
@@ -124,7 +135,7 @@ async fn fixture_provider_reports_protocol_and_handler_errors_conformantly() {
     ));
 
     let route_error = harness
-        .handle_command_json_result(
+        .handle_encoded_command(
             br#"{"schema_version":1,"route":"/knowledge/external/unknown","payload":{}}"#.to_vec(),
         )
         .await
@@ -135,7 +146,7 @@ async fn fixture_provider_reports_protocol_and_handler_errors_conformantly() {
     ));
 
     let handler_error = harness
-        .handle_command_descriptor_result(NexusFlightCommand::Sync(NexusFlightSyncRequest {
+        .handle_command(NexusFlightCommand::Sync(NexusFlightSyncRequest {
             source_id: "demo-pubmed".to_string(),
             external_id: Some("medical/pubmed-demo-1".to_string()),
             force: false,
@@ -147,16 +158,16 @@ async fn fixture_provider_reports_protocol_and_handler_errors_conformantly() {
         NexusFlightProviderError::Handler(_)
     ));
 
-    harness.cleanup();
+    cleanup_dir(&artifact_root);
 }
 
 async fn assert_normalized_artifact_replays(
-    harness: &FixtureFlightHarness,
+    harness: &NexusFixtureHarness,
     source_id: &str,
     external_id: &str,
 ) {
     let artifacts = harness
-        .artifact_store
+        .artifact_store()
         .list_artifacts(source_id, external_id)
         .await
         .unwrap();
@@ -165,7 +176,7 @@ async fn assert_normalized_artifact_replays(
         .find(|artifact| artifact.kind == ArtifactKind::NormalizedDocument)
         .unwrap();
     let payload = harness
-        .artifact_store
+        .artifact_store()
         .get_artifact(
             source_id,
             external_id,
@@ -181,6 +192,12 @@ async fn assert_normalized_artifact_replays(
     assert_eq!(document.external_id, external_id);
     assert_eq!(document.content_hash, normalized.content_hash);
     assert_eq!(payload.descriptor.kind, ArtifactKind::NormalizedDocument);
+}
+
+fn cleanup_dir(path: &std::path::Path) {
+    if path.exists() {
+        let _ = std::fs::remove_dir_all(path);
+    }
 }
 
 struct HarnessCase {

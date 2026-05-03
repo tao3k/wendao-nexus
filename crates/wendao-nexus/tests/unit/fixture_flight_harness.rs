@@ -119,7 +119,7 @@ async fn fixture_flight_harness_serves_source_pack_without_server_or_backend_dat
     );
 
     let artifacts = harness
-        .artifact_store
+        .artifact_store()
         .list_artifacts("demo-pubmed", "medical/pubmed-demo-1")
         .await
         .unwrap();

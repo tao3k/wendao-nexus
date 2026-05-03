@@ -25,6 +25,9 @@ public local knowledge-store ownership from the current contract-only phase.
 The facade crate's `tests/conformance/` suite is the pre-adapter contract gate
 for routes, command envelopes, Arrow schemas and batches, directory-first source
 packs, serverless fixture command handling, and artifact replay.
+`NexusFixtureHarness` is the only public fixture composition in the facade crate;
+it exists to let downstream adapter tests consume deterministic SourcePack
+evidence without starting a server or introducing a backend.
 
 ## Workspace Policy
 

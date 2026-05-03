@@ -71,13 +71,13 @@ crates in the legal direction.
 
 Facade crate:
 
-- serverless fixture Flight harness tests for source-pack runtime and Arrow
-  batch validation;
+- `NexusFixtureHarness` for serverless source-pack ingest, artifact replay, and
+  Arrow Flight batch validation before Wendao-side adapter mounting;
 - package-level harness coverage for composing runtime and protocol crates.
 
 This crate does not own a server process, local knowledge store, memory engine,
-or search/open implementation. Wendao-side code mounts `wendao-nexus-flight`
-providers by implementing `NexusFlightCommandHandler`.
+or production search/open implementation. Wendao-side code mounts
+`wendao-nexus-flight` providers by implementing `NexusFlightCommandHandler`.
 
 ### `wendao-nexus-core`
 
