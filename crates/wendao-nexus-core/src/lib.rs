@@ -54,6 +54,7 @@ pub use source::{
     DeltaBatch, DiscoveryBatch, KnowledgeSourceKind, NexusSourceRecord,
     SOURCE_PACK_DISPLAY_NAME_METADATA_KEY, SOURCE_PACK_DOMAIN_METADATA_KEY,
     SOURCE_PACK_FIXTURE_PATH_METADATA_KEY, SOURCE_PACK_ID_METADATA_KEY,
+    SOURCE_PACK_PRODUCER_METADATA_KEY, SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY,
     SOURCE_PACK_VERSION_METADATA_KEY, SourceCapabilities, SourceChange, SourceCheckpoint,
     SourceCursor, SourceDomain, SourceItemRef,
 };

@@ -150,15 +150,16 @@ fixture corpora so source-pack behavior can be validated before live APIs. That
 connector is fixture-only: its minimal frontmatter handling is not a production
 Markdown parser and must not grow into document extraction ownership.
 `SourcePack` loads TOML/JSON manifests that group multiple local corpus sources
-with source kind, authority, version, and license metadata, and can emit source
-catalog records for the Wendao-side registry boundary. Live API clients are
-deliberately left as explicit unsupported paths until source-specific rate
-limit, auth, and contract tests are added. Unsupported live stubs do not
-advertise executable discover/fetch/delta/live-query capabilities. Current
-phase guards reject direct live-client dependencies and connector-source imports
-for live clients, while source-pack manifests reject empty or whitespace-padded
-registry identities and duplicate source ids. Disabled source-pack entries stay
-visible as source catalog records but do not create local corpus connectors.
+with source kind, authority, schema version, producer, version, and license
+metadata, and can emit source catalog records for the Wendao-side registry
+boundary. Live API clients are deliberately left as explicit unsupported paths
+until source-specific rate limit, auth, and contract tests are added.
+Unsupported live stubs do not advertise executable discover/fetch/delta or live
+query capabilities. Current phase guards reject direct live-client dependencies
+and connector-source imports for live clients, while source-pack manifests
+reject unsupported schema versions, empty or whitespace-padded registry
+identities, and duplicate source ids. Disabled source-pack entries stay visible
+as source catalog records but do not create local corpus connectors.
 
 ## Flight Routes
 

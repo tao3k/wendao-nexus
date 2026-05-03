@@ -1,7 +1,8 @@
 use wendao_nexus_core::{
     EvidenceKind, KnowledgeSourceKind, NexusSourceRecord, SOURCE_PACK_DISPLAY_NAME_METADATA_KEY,
     SOURCE_PACK_DOMAIN_METADATA_KEY, SOURCE_PACK_FIXTURE_PATH_METADATA_KEY,
-    SOURCE_PACK_ID_METADATA_KEY, SOURCE_PACK_VERSION_METADATA_KEY, SourceCapabilities,
+    SOURCE_PACK_ID_METADATA_KEY, SOURCE_PACK_PRODUCER_METADATA_KEY,
+    SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY, SOURCE_PACK_VERSION_METADATA_KEY, SourceCapabilities,
     SourceCheckpoint, SourceCursor, SourceDomain, SourceItemRef,
 };
 
@@ -74,6 +75,8 @@ fn source_record_source_pack_metadata_helpers_read_string_values() {
 
     assert_eq!(record.source_pack_id(), None);
     assert_eq!(record.source_pack_version(), None);
+    assert_eq!(record.source_pack_schema_version(), None);
+    assert_eq!(record.source_pack_producer(), None);
     assert_eq!(record.source_pack_display_name(), None);
     assert_eq!(record.source_pack_fixture_path(), None);
 
@@ -86,6 +89,14 @@ fn source_record_source_pack_metadata_helpers_read_string_values() {
         "0.1.0".to_string(),
     );
     record.metadata.insert(
+        SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY.to_string(),
+        "1".to_string(),
+    );
+    record.metadata.insert(
+        SOURCE_PACK_PRODUCER_METADATA_KEY.to_string(),
+        "fixture-builder".to_string(),
+    );
+    record.metadata.insert(
         SOURCE_PACK_DISPLAY_NAME_METADATA_KEY.to_string(),
         "Medical Demo Pack".to_string(),
     );
@@ -96,6 +107,8 @@ fn source_record_source_pack_metadata_helpers_read_string_values() {
 
     assert_eq!(record.source_pack_id(), Some("medical-demo-pack"));
     assert_eq!(record.source_pack_version(), Some("0.1.0"));
+    assert_eq!(record.source_pack_schema_version(), Some("1"));
+    assert_eq!(record.source_pack_producer(), Some("fixture-builder"));
     assert_eq!(record.source_pack_display_name(), Some("Medical Demo Pack"));
     assert_eq!(
         record.source_pack_fixture_path(),

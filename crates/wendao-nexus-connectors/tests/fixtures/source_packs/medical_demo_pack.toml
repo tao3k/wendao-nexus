@@ -1,8 +1,10 @@
 [source_pack]
 id = "medical-demo-pack"
 version = "0.1.0"
+schema_version = 1
 domain = "medical"
 display_name = "Medical Demo Pack"
+producer = "wendao-nexus-fixtures"
 authority_level = "Curated"
 license = "Fixture License"
 

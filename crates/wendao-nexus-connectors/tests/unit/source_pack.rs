@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use wendao_nexus_connectors::{SourcePack, SourcePackManifest};
+use wendao_nexus_connectors::{
+    SOURCE_PACK_MANIFEST_SCHEMA_VERSION, SourcePack, SourcePackManifest,
+};
 use wendao_nexus_core::{
     AuthorityLevel, KnowledgeSourceConnector, KnowledgeSourceKind, SOURCE_METADATA_PMID_KEY,
     SourceDomain, SourceItemRef,
@@ -12,6 +14,14 @@ async fn source_pack_loads_manifest_and_local_corpus_connectors() {
 
     assert_eq!(pack.manifest().source_pack.id, "medical-demo-pack");
     assert_eq!(pack.manifest().source_pack.version, "0.1.0");
+    assert_eq!(
+        pack.manifest().source_pack.schema_version,
+        SOURCE_PACK_MANIFEST_SCHEMA_VERSION
+    );
+    assert_eq!(
+        pack.manifest().source_pack.producer.as_deref(),
+        Some("wendao-nexus-fixtures")
+    );
     assert_eq!(pack.manifest().source_pack.domain, SourceDomain::Medical);
     assert_eq!(
         pack.manifest().source_pack.authority_level,
@@ -67,6 +77,10 @@ fn source_pack_manifest_can_be_parsed_without_loading_connectors() {
 
     assert_eq!(manifest.sources.len(), 2);
     assert_eq!(manifest.source_pack.domain, SourceDomain::Medical);
+    assert_eq!(
+        manifest.source_pack.schema_version,
+        SOURCE_PACK_MANIFEST_SCHEMA_VERSION
+    );
     assert_eq!(manifest.sources[0].source_id, "demo-pubmed");
     assert_eq!(
         manifest.sources[1].fixture_path,
@@ -80,6 +94,10 @@ async fn source_pack_json_manifest_loads_like_toml_manifest() {
 
     assert_eq!(pack.manifest().source_pack.id, "medical-demo-pack-json");
     assert_eq!(pack.manifest().source_pack.domain, SourceDomain::Medical);
+    assert_eq!(
+        pack.manifest().source_pack.producer.as_deref(),
+        Some("wendao-nexus-fixtures")
+    );
     assert_eq!(pack.connectors().len(), 2);
 
     let pubmed = pack.connector("demo-pubmed-json").unwrap();
@@ -119,6 +137,11 @@ fn source_pack_emits_source_registry_records() {
     );
     assert_eq!(records[0].source_pack_id(), Some("medical-demo-pack"));
     assert_eq!(records[0].source_pack_version(), Some("0.1.0"));
+    assert_eq!(records[0].source_pack_schema_version(), Some("1"));
+    assert_eq!(
+        records[0].source_pack_producer(),
+        Some("wendao-nexus-fixtures")
+    );
     assert_eq!(
         records[0].source_pack_display_name(),
         Some("Medical Demo Pack")
@@ -136,6 +159,10 @@ fn source_pack_keeps_disabled_sources_in_registry_records_only() {
     let records = pack.source_records();
 
     assert_eq!(pack.manifest().source_pack.domain, SourceDomain::Generic);
+    assert_eq!(
+        pack.manifest().source_pack.schema_version,
+        SOURCE_PACK_MANIFEST_SCHEMA_VERSION
+    );
     assert_eq!(pack.connectors().len(), 1);
     assert!(pack.connector("enabled-guideline").is_some());
     assert!(pack.connector("disabled-pubmed").is_none());
@@ -200,6 +227,25 @@ fn source_pack_rejects_whitespace_padded_fixture_paths() {
     assert!(error.contains("fixture_path must not contain"));
 }
 
+#[test]
+fn source_pack_rejects_unsupported_schema_version() {
+    let error = SourcePackManifest::from_path(unsupported_schema_version_manifest())
+        .unwrap_err()
+        .to_string();
+
+    assert!(error.contains("schema_version 2 is unsupported"));
+    assert!(error.contains("expected 1"));
+}
+
+#[test]
+fn source_pack_rejects_whitespace_padded_producer() {
+    let error = SourcePackManifest::from_path(whitespace_producer_manifest())
+        .unwrap_err()
+        .to_string();
+
+    assert!(error.contains("producer ` fixture-builder ` must not contain"));
+}
+
 fn fixture_manifest() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/source_packs/medical_demo_pack.toml")
@@ -227,4 +273,12 @@ fn whitespace_source_id_manifest() -> PathBuf {
 
 fn whitespace_fixture_path_manifest() -> PathBuf {
     fixture_manifest().with_file_name("whitespace_fixture_path.toml")
+}
+
+fn unsupported_schema_version_manifest() -> PathBuf {
+    fixture_manifest().with_file_name("unsupported_schema_version.toml")
+}
+
+fn whitespace_producer_manifest() -> PathBuf {
+    fixture_manifest().with_file_name("whitespace_producer.toml")
 }

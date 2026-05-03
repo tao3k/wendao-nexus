@@ -13,6 +13,11 @@ pub const SOURCE_PACK_DOMAIN_METADATA_KEY: &str = "source_pack_domain";
 pub const SOURCE_PACK_ID_METADATA_KEY: &str = "source_pack_id";
 /// Source registry metadata key used to preserve the source-pack version.
 pub const SOURCE_PACK_VERSION_METADATA_KEY: &str = "source_pack_version";
+/// Source registry metadata key used to preserve the source-pack manifest schema
+/// version.
+pub const SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY: &str = "source_pack_schema_version";
+/// Source registry metadata key used to preserve the source-pack producer.
+pub const SOURCE_PACK_PRODUCER_METADATA_KEY: &str = "source_pack_producer";
 /// Source registry metadata key used to preserve the source-pack display name.
 pub const SOURCE_PACK_DISPLAY_NAME_METADATA_KEY: &str = "source_pack_display_name";
 /// Source registry metadata key used to preserve deterministic fixture paths.
@@ -227,6 +232,14 @@ impl NexusSourceRecord {
 
     pub fn source_pack_version(&self) -> Option<&str> {
         self.metadata_value(SOURCE_PACK_VERSION_METADATA_KEY)
+    }
+
+    pub fn source_pack_schema_version(&self) -> Option<&str> {
+        self.metadata_value(SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY)
+    }
+
+    pub fn source_pack_producer(&self) -> Option<&str> {
+        self.metadata_value(SOURCE_PACK_PRODUCER_METADATA_KEY)
     }
 
     pub fn source_pack_display_name(&self) -> Option<&str> {

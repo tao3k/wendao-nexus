@@ -31,6 +31,9 @@ pub use external_database::{
 };
 pub use local_corpus::{LocalCorpusConfig, LocalCorpusConnector};
 pub use pubmed::{PubMedConfig, PubMedConnector};
-pub use source_pack::{SourcePack, SourcePackManifest, SourcePackMetadata, SourcePackSource};
+pub use source_pack::{
+    SOURCE_PACK_MANIFEST_SCHEMA_VERSION, SourcePack, SourcePackManifest, SourcePackMetadata,
+    SourcePackSource,
+};
 pub use static_connector::StaticKnowledgeConnector;
 pub use wikipedia::{WikipediaConfig, WikipediaConnector};

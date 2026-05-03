@@ -1,0 +1,9 @@
+[source_pack]
+id = "whitespace-producer-pack"
+version = "0.1.0"
+producer = " fixture-builder "
+
+[[sources]]
+source_id = "demo-pubmed"
+kind = "PubMed"
+fixture_path = "../corpus/medical/articles.jsonl"

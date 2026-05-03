@@ -1,8 +1,10 @@
 [source_pack]
 id = "legal-compliance-pack"
 version = "2026.04-fixture"
+schema_version = 1
 domain = "legal"
 display_name = "Legal Compliance Pack"
+producer = "wendao-nexus-fixtures"
 authority_level = "Official"
 license = "Public Legal Fixture"
 

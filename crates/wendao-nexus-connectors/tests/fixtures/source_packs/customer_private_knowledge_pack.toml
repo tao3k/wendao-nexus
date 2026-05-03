@@ -1,8 +1,10 @@
 [source_pack]
 id = "customer-private-knowledge-pack"
 version = "2026.04-fixture"
+schema_version = 1
 domain = "customer_private"
 display_name = "Customer Private Knowledge Pack"
+producer = "wendao-nexus-fixtures"
 authority_level = "CustomerInternal"
 license = "Customer Confidential"
 

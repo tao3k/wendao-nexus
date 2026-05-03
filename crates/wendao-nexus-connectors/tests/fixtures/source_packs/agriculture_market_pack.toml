@@ -1,8 +1,10 @@
 [source_pack]
 id = "agriculture-market-pack"
 version = "2026.04-fixture"
+schema_version = 1
 domain = "agriculture"
 display_name = "Agriculture Market Pack"
+producer = "wendao-nexus-fixtures"
 authority_level = "Official"
 license = "Public Agriculture Fixture"
 

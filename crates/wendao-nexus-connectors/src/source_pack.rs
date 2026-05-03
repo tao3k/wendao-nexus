@@ -9,10 +9,14 @@ use wendao_nexus_core::{
     AuthorityLevel, KnowledgeSourceConnector, KnowledgeSourceKind, NexusError, NexusResult,
     NexusSourceRecord, SOURCE_PACK_DISPLAY_NAME_METADATA_KEY, SOURCE_PACK_DOMAIN_METADATA_KEY,
     SOURCE_PACK_FIXTURE_PATH_METADATA_KEY, SOURCE_PACK_ID_METADATA_KEY,
+    SOURCE_PACK_PRODUCER_METADATA_KEY, SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY,
     SOURCE_PACK_VERSION_METADATA_KEY, SourceCapabilities, SourceDomain,
 };
 
 use crate::local_corpus::{LocalCorpusConfig, LocalCorpusConnector};
+
+/// Current source-pack manifest schema version.
+pub const SOURCE_PACK_MANIFEST_SCHEMA_VERSION: u32 = 1;
 
 /// Source-pack manifest shape used by deterministic fixture packs.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -27,10 +31,14 @@ pub struct SourcePackManifest {
 pub struct SourcePackMetadata {
     pub id: String,
     pub version: String,
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     #[serde(default)]
     pub domain: SourceDomain,
     #[serde(default)]
     pub display_name: Option<String>,
+    #[serde(default)]
+    pub producer: Option<String>,
     #[serde(default)]
     pub authority_level: Option<AuthorityLevel>,
     #[serde(default)]
@@ -74,6 +82,10 @@ impl SourcePackSource {
             pack.version.clone(),
         );
         record.metadata.insert(
+            SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY.to_string(),
+            pack.schema_version.to_string(),
+        );
+        record.metadata.insert(
             SOURCE_PACK_DOMAIN_METADATA_KEY.to_string(),
             pack.domain.wire_label(),
         );
@@ -85,6 +97,12 @@ impl SourcePackSource {
             record.metadata.insert(
                 SOURCE_PACK_DISPLAY_NAME_METADATA_KEY.to_string(),
                 display_name.clone(),
+            );
+        }
+        if let Some(producer) = &pack.producer {
+            record.metadata.insert(
+                SOURCE_PACK_PRODUCER_METADATA_KEY.to_string(),
+                producer.clone(),
             );
         }
         record
@@ -230,6 +248,28 @@ fn validate_manifest(manifest: &SourcePackManifest) -> NexusResult<()> {
             manifest.source_pack.id, manifest.source_pack.version
         )));
     }
+    if manifest.source_pack.schema_version != SOURCE_PACK_MANIFEST_SCHEMA_VERSION {
+        return Err(NexusError::InvalidSource(format!(
+            "source pack `{}` schema_version {} is unsupported; expected {}",
+            manifest.source_pack.id,
+            manifest.source_pack.schema_version,
+            SOURCE_PACK_MANIFEST_SCHEMA_VERSION
+        )));
+    }
+    if let Some(producer) = &manifest.source_pack.producer {
+        if producer.trim().is_empty() {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{}` producer must not be empty",
+                manifest.source_pack.id
+            )));
+        }
+        if producer != producer.trim() {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{}` producer `{producer}` must not contain leading or trailing whitespace",
+                manifest.source_pack.id
+            )));
+        }
+    }
     if manifest.sources.is_empty() {
         return Err(NexusError::InvalidSource(format!(
             "source pack `{}` must declare at least one source",
@@ -279,6 +319,10 @@ fn validate_manifest(manifest: &SourcePackManifest) -> NexusResult<()> {
 
 fn default_enabled() -> bool {
     true
+}
+
+fn default_schema_version() -> u32 {
+    SOURCE_PACK_MANIFEST_SCHEMA_VERSION
 }
 
 fn invalid_source(message: String) -> NexusError {
