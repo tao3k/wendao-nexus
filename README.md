@@ -103,7 +103,8 @@ Public Arrow Flight protocol:
 - canonical route constants;
 - metadata header constants;
 - Arrow schemas for search, open, sync, status, and compare batches;
-- typed command envelopes for `FlightDescriptor::cmd`;
+- typed command envelopes for `FlightDescriptor::cmd`, including required
+  command `schema_version = 1`;
 - Arrow batch builders and a thin command handler provider for Wendao-side
   routing.
 
@@ -204,6 +205,8 @@ validated. Current crates intentionally carry no HTTP client dependency.
 
 The first commercial fixtures are vertical source packs:
 
+- medical baseline evidence with PubMed-style article metadata, a clinical
+  guideline fixture, license metadata, and non-generic `evidence_kind` values;
 - customer private SOP evidence with tenant, department, ACL tags, version,
   customer-confidential license policy, and `CustomerInternal` authority;
 - legal compliance clauses with jurisdiction, statute, article, effective date,
@@ -215,6 +218,9 @@ Nexus keeps these as deterministic local corpus input so business-critical
 knowledge paths can be validated before any live customer database, CRM,
 document system, external market API, CocoIndex exporter, or Wendao adapter is
 added.
+Positive business packs use directory-first fixtures with `source_pack.toml`,
+local JSONL documents, and golden text snapshots for search/open/status-shaped
+contract rows. Flat manifests remain for negative validation cases.
 
 ## CocoIndex Positioning
 

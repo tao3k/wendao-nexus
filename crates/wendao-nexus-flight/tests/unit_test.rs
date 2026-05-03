@@ -1,4 +1,4 @@
-#[path = "unit/batch.rs"]
+#[path = "unit/batch/mod.rs"]
 mod batch;
 
 #[path = "unit/command.rs"]

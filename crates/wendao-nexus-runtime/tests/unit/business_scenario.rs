@@ -173,16 +173,17 @@ async fn agriculture_market_signal_ingests_with_official_provenance() {
 
 fn customer_private_pack_manifest() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
-        "../wendao-nexus-connectors/tests/fixtures/source_packs/customer_private_knowledge_pack.toml",
+        "../wendao-nexus-connectors/tests/fixtures/source_packs/customer_private_sop/source_pack.toml",
     )
 }
 
 fn legal_compliance_pack_manifest() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../wendao-nexus-connectors/tests/fixtures/source_packs/legal_compliance_pack.toml")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../wendao-nexus-connectors/tests/fixtures/source_packs/legal_compliance/source_pack.toml",
+    )
 }
 
 fn agriculture_market_pack_manifest() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../wendao-nexus-connectors/tests/fixtures/source_packs/agriculture_market_pack.toml")
+        .join("../wendao-nexus-connectors/tests/fixtures/source_packs/agriculture_market/source_pack.toml")
 }

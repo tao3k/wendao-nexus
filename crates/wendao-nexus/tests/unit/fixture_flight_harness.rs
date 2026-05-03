@@ -1,25 +1,17 @@
-use std::collections::BTreeSet;
-use std::path::PathBuf;
-
 use arrow_array::{Array, BooleanArray, RecordBatch, StringArray};
-use async_trait::async_trait;
-use chrono::{Duration, Utc};
-use wendao_nexus_connectors::SourcePack;
 use wendao_nexus_core::{
-    AuthorityLevel, EvidenceBoundary, EvidenceConflictMode, EvidenceRecord,
-    ExternalKnowledgeCompareRequest, ExternalKnowledgeDocument, ExternalKnowledgeOpenRequest,
-    ExternalKnowledgeSearchRequest, ExternalKnowledgeSearchResponse, KnowledgeSourceConnector,
-    ProvenanceBundle, SourceItemRef, TrustPolicy,
+    AuthorityLevel, EvidenceConflictMode, ExternalKnowledgeCompareRequest,
+    ExternalKnowledgeOpenRequest, ExternalKnowledgeSearchRequest, TrustPolicy,
 };
 use wendao_nexus_flight::{
-    FlightCompareResultRow, FlightOpenDocumentRow, FlightSearchResultRow, FlightStatusRow,
-    FlightSyncResultRow, NexusFlightBatchProvider, NexusFlightCommand, NexusFlightCommandHandler,
-    NexusFlightHandlerError, NexusFlightStatusRequest, NexusFlightSyncRequest,
-    open_rows_from_document, search_rows_from_response,
+    EXTERNAL_KNOWLEDGE_STATUS_ROUTE, NexusFlightCommand, NexusFlightCommandError,
+    NexusFlightProviderError, NexusFlightStatusRequest, NexusFlightSyncRequest,
 };
-use wendao_nexus_runtime::{
-    ArtifactKind, ArtifactStore, CheckpointRegistry, InMemoryNexusRegistry, LocalFileArtifactStore,
-    NexusSyncRuntime, NormalizationContext, PlainTextNormalizer, SourceRegistry,
+use wendao_nexus_runtime::{ArtifactKind, ArtifactStore};
+
+use crate::fixture_flight_support::{
+    FixtureFlightHarness, agriculture_pack_fixture_manifest,
+    customer_private_pack_fixture_manifest, legal_pack_fixture_manifest,
 };
 
 #[tokio::test]
@@ -51,7 +43,7 @@ async fn fixture_flight_harness_serves_source_pack_without_server_or_backend_dat
     );
     assert_eq!(
         string_column(&search_batch, "evidence_kind").value(0),
-        "document"
+        "trial_result"
     );
 
     let open_batch = harness
@@ -164,6 +156,10 @@ async fn fixture_flight_harness_serves_customer_private_business_scenario() {
         string_column(&search_batch, "authority_level").value(0),
         "CustomerInternal"
     );
+    assert_eq!(
+        string_column(&search_batch, "evidence_kind").value(0),
+        "customer_internal_note"
+    );
     assert!(
         string_column(&search_batch, "snippet")
             .value(0)
@@ -223,6 +219,32 @@ async fn fixture_flight_harness_serves_customer_private_business_scenario() {
             .unwrap()
             .is_null(1)
     );
+
+    harness.cleanup();
+}
+
+#[tokio::test]
+async fn source_pack_customer_sop_ingest_roundtrip_detects_insufficient_authority() {
+    let harness =
+        FixtureFlightHarness::build_with_manifest(customer_private_pack_fixture_manifest()).await;
+
+    let compare_batch = harness
+        .handle_descriptor(NexusFlightCommand::Compare(
+            ExternalKnowledgeCompareRequest {
+                claim: "QA reviewer approval".to_string(),
+                sources: vec!["customer-sop-demo".to_string()],
+                mode: EvidenceConflictMode::EvidenceConflictCheck,
+                trust_policy: TrustPolicy::authority_at_least(AuthorityLevel::Official),
+            },
+        ))
+        .await;
+
+    assert_eq!(
+        string_column(&compare_batch, "verdict").value(0),
+        "insufficient_authority"
+    );
+    assert!(bool_column(&compare_batch, "insufficient_authority").value(0));
+    assert!(!bool_column(&compare_batch, "stale_evidence").value(0));
 
     harness.cleanup();
 }
@@ -322,364 +344,59 @@ async fn fixture_flight_harness_serves_legal_and_agriculture_evidence_kinds() {
     agriculture_harness.cleanup();
 }
 
-struct FixtureFlightHarness {
-    provider: NexusFlightBatchProvider<FixtureFlightHandler>,
-    artifact_store: LocalFileArtifactStore,
-    artifact_root: PathBuf,
-}
+#[tokio::test]
+async fn fixture_command_client_surfaces_protocol_and_handler_errors() {
+    let harness = FixtureFlightHarness::build().await;
 
-impl FixtureFlightHarness {
-    async fn build() -> Self {
-        Self::build_with_manifest(source_pack_fixture_manifest()).await
-    }
-
-    async fn build_with_manifest(manifest: PathBuf) -> Self {
-        let artifact_root = artifact_dir("fixture_flight_harness_artifacts");
-        cleanup_dir(&artifact_root);
-
-        let pack = SourcePack::from_path(manifest).unwrap();
-        let registry = InMemoryNexusRegistry::new();
-        let artifact_store = LocalFileArtifactStore::open(&artifact_root).unwrap();
-        let runtime = NexusSyncRuntime::new(registry.clone());
-        let normalizer = PlainTextNormalizer;
-        let mut documents = Vec::new();
-
-        for record in pack.source_records() {
-            registry.upsert_source(record).await.unwrap();
-        }
-
-        for connector in pack.connectors() {
-            let source = pack.source(connector.source_id()).unwrap();
-            let discovered = runtime.discover_once(connector).await.unwrap();
-            for item in discovered.batch.items {
-                let outcome = runtime
-                    .ingest_once_with_artifact_store(
-                        connector,
-                        SourceItemRef::new(item.source_id, item.external_id),
-                        &normalizer,
-                        &artifact_store,
-                        NormalizationContext::new(
-                            source.kind.clone(),
-                            source.authority_level.unwrap_or(AuthorityLevel::Unknown),
-                        ),
-                    )
-                    .await
-                    .unwrap();
-                documents.push(outcome.ingest.document);
-            }
-        }
-
-        assert!(!documents.is_empty());
-        let provider = NexusFlightBatchProvider::new(FixtureFlightHandler {
-            documents,
-            registry,
-        });
-
-        Self {
-            provider,
-            artifact_store,
-            artifact_root,
-        }
-    }
-
-    async fn handle_descriptor(&self, command: NexusFlightCommand) -> RecordBatch {
-        let descriptor = command.to_descriptor().unwrap();
-        self.provider.handle_descriptor(&descriptor).await.unwrap()
-    }
-
-    fn cleanup(self) {
-        cleanup_dir(&self.artifact_root);
-    }
-}
-
-#[derive(Clone)]
-struct FixtureFlightHandler {
-    documents: Vec<ExternalKnowledgeDocument>,
-    registry: InMemoryNexusRegistry,
-}
-
-#[async_trait]
-impl NexusFlightCommandHandler for FixtureFlightHandler {
-    async fn search(
-        &self,
-        request: ExternalKnowledgeSearchRequest,
-    ) -> Result<Vec<FlightSearchResultRow>, NexusFlightHandlerError> {
-        let response = search_documents(&self.documents, request);
-        search_rows_from_response(&response).map_err(handler_error)
-    }
-
-    async fn open(
-        &self,
-        request: ExternalKnowledgeOpenRequest,
-    ) -> Result<Vec<FlightOpenDocumentRow>, NexusFlightHandlerError> {
-        let document = self
-            .documents
-            .iter()
-            .find(|document| {
-                document.source_id == request.source_id
-                    && document.external_id == request.external_id
-            })
-            .ok_or_else(|| {
-                NexusFlightHandlerError::message(format!(
-                    "fixture document `{}/{}` not found",
-                    request.source_id, request.external_id
-                ))
-            })?;
-        open_rows_from_document(
-            document,
-            request.include_sections,
-            request.include_provenance,
+    let schema_error = harness
+        .handle_command_json_result(
+            br#"{"schema_version":2,"route":"/knowledge/external/status","payload":{"sources":[]}}"#
+                .to_vec(),
         )
-        .map_err(handler_error)
-    }
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        schema_error,
+        NexusFlightProviderError::Command(NexusFlightCommandError::UnsupportedSchemaVersion(2))
+    ));
 
-    async fn sync(
-        &self,
-        request: NexusFlightSyncRequest,
-    ) -> Result<Vec<FlightSyncResultRow>, NexusFlightHandlerError> {
-        Err(NexusFlightHandlerError::message(format!(
-            "fixture source `{}` sync belongs to the embedding Wendao runtime",
-            request.source_id
-        )))
-    }
+    let route_error = harness
+        .handle_command_json_result(
+            br#"{"schema_version":1,"route":"/knowledge/external/unknown","payload":{}}"#.to_vec(),
+        )
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        route_error,
+        NexusFlightProviderError::Command(NexusFlightCommandError::UnsupportedRoute(_))
+    ));
 
-    async fn status(
-        &self,
-        request: NexusFlightStatusRequest,
-    ) -> Result<Vec<FlightStatusRow>, NexusFlightHandlerError> {
-        let source_ids = self.status_source_ids(request).await?;
-        let mut rows = Vec::with_capacity(source_ids.len());
+    let sync_error = harness
+        .handle_command_descriptor_result(NexusFlightCommand::Sync(NexusFlightSyncRequest {
+            source_id: "demo-pubmed".to_string(),
+            external_id: Some("medical/pubmed-demo-1".to_string()),
+            force: false,
+        }))
+        .await
+        .unwrap_err();
+    assert!(matches!(sync_error, NexusFlightProviderError::Handler(_)));
 
-        for source_id in source_ids {
-            let source = self
-                .registry
-                .get_source(&source_id)
-                .await
-                .map_err(handler_error)?;
-            let enabled = source.as_ref().is_none_or(|source| source.enabled);
-            match self
-                .registry
-                .get_checkpoint(&source_id)
-                .await
-                .map_err(handler_error)?
-            {
-                Some(checkpoint) => {
-                    let mut row = FlightStatusRow::from(&checkpoint);
-                    row.enabled = enabled;
-                    rows.push(row);
-                }
-                None => rows.push(FlightStatusRow {
-                    source_id,
-                    enabled,
-                    last_success_at: None,
-                    last_seen_revision: None,
-                    last_content_hash: None,
-                    rate_limit_state: None,
-                }),
-            }
-        }
+    let status_batch = harness
+        .handle_command_descriptor_result(NexusFlightCommand::Status(NexusFlightStatusRequest {
+            sources: vec!["demo-pubmed".to_string()],
+        }))
+        .await
+        .unwrap();
+    assert_eq!(
+        status_batch
+            .schema()
+            .metadata()
+            .get("wendao_nexus.route")
+            .map(String::as_str),
+        Some(EXTERNAL_KNOWLEDGE_STATUS_ROUTE)
+    );
 
-        Ok(rows)
-    }
-
-    async fn compare(
-        &self,
-        request: ExternalKnowledgeCompareRequest,
-    ) -> Result<Vec<FlightCompareResultRow>, NexusFlightHandlerError> {
-        let mut search = ExternalKnowledgeSearchRequest::new(request.claim.clone());
-        search.sources = request.sources;
-        let minimum_authority = request.trust_policy.minimum_authority;
-        search.trust_policy = request.trust_policy;
-        search.limit = 20;
-
-        let response = search_documents(&self.documents, search);
-        let evidence_records = response
-            .records
-            .iter()
-            .map(|record| record.provenance.primary.clone())
-            .collect::<Vec<_>>();
-        let insufficient_authority = response.records.is_empty();
-        let boundary = EvidenceBoundary {
-            records: evidence_records,
-            minimum_authority,
-            insufficient_authority,
-            stale_evidence: false,
-            conflict_detected: false,
-        };
-
-        Ok(vec![FlightCompareResultRow {
-            claim: request.claim,
-            verdict: if insufficient_authority {
-                "insufficient_authority".to_string()
-            } else {
-                "evidence_available".to_string()
-            },
-            conflict_detected: boundary.conflict_detected,
-            insufficient_authority: boundary.insufficient_authority,
-            stale_evidence: boundary.stale_evidence,
-            provenance_json: Some(serde_json::to_string(&boundary).map_err(handler_error)?),
-        }])
-    }
-}
-
-impl FixtureFlightHandler {
-    async fn status_source_ids(
-        &self,
-        request: NexusFlightStatusRequest,
-    ) -> Result<Vec<String>, NexusFlightHandlerError> {
-        if !request.sources.is_empty() {
-            return Ok(request.sources);
-        }
-
-        let registered_sources = self
-            .registry
-            .list_sources(true)
-            .await
-            .map_err(handler_error)?;
-        if !registered_sources.is_empty() {
-            return Ok(registered_sources
-                .into_iter()
-                .map(|source| source.source_id)
-                .collect());
-        }
-
-        Ok(self
-            .documents
-            .iter()
-            .map(|document| document.source_id.clone())
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect())
-    }
-}
-
-fn search_documents(
-    documents: &[ExternalKnowledgeDocument],
-    request: ExternalKnowledgeSearchRequest,
-) -> ExternalKnowledgeSearchResponse {
-    let mut records = documents
-        .iter()
-        .filter(|document| source_filter_allows(document, &request.sources))
-        .filter(|document| trust_policy_allows(document, &request.trust_policy))
-        .filter(|document| freshness_filter_allows(document, request.freshness_days))
-        .filter(|document| document_matches_query(document, &request.query))
-        .map(|document| evidence_record_from_document(document, &request.query))
-        .collect::<Vec<_>>();
-
-    records.sort_by(|left, right| {
-        right
-            .provenance
-            .primary
-            .authority_level
-            .cmp(&left.provenance.primary.authority_level)
-            .then_with(|| left.source_id.cmp(&right.source_id))
-            .then_with(|| left.external_id.cmp(&right.external_id))
-    });
-    records.truncate(request.limit);
-
-    ExternalKnowledgeSearchResponse {
-        query: request.query,
-        records,
-        generated_at: Utc::now(),
-    }
-}
-
-fn source_filter_allows(document: &ExternalKnowledgeDocument, sources: &[String]) -> bool {
-    sources.is_empty()
-        || sources
-            .iter()
-            .any(|source_id| source_id == &document.source_id)
-}
-
-fn trust_policy_allows(document: &ExternalKnowledgeDocument, policy: &TrustPolicy) -> bool {
-    let authority = document.provenance.authority_level;
-    authority >= policy.minimum_authority
-        && (policy.allow_community_sources || authority != AuthorityLevel::Community)
-}
-
-fn freshness_filter_allows(
-    document: &ExternalKnowledgeDocument,
-    freshness_days: Option<u32>,
-) -> bool {
-    match freshness_days {
-        Some(days) => document.fetched_at >= Utc::now() - Duration::days(days.into()),
-        None => true,
-    }
-}
-
-fn document_matches_query(document: &ExternalKnowledgeDocument, query: &str) -> bool {
-    let terms = normalized_terms(query);
-    if terms.is_empty() {
-        return true;
-    }
-
-    let haystack = normalized_document_text(document);
-    terms.iter().all(|term| haystack.contains(term))
-}
-
-fn evidence_record_from_document(
-    document: &ExternalKnowledgeDocument,
-    query: &str,
-) -> EvidenceRecord {
-    EvidenceRecord {
-        source_id: document.source_id.clone(),
-        external_id: document.external_id.clone(),
-        title: document.title.clone(),
-        snippet: best_snippet(document, query),
-        score: Some("1.0".to_string()),
-        evidence_kind: document.metadata.evidence_kind(),
-        provenance: ProvenanceBundle {
-            primary: document.provenance.clone(),
-            corroborating: Vec::new(),
-            conflicting: Vec::new(),
-        },
-    }
-}
-
-fn best_snippet(document: &ExternalKnowledgeDocument, query: &str) -> String {
-    let terms = normalized_terms(query);
-    let candidate = document
-        .sections
-        .iter()
-        .map(|section| section.text.as_str())
-        .find(|text| {
-            let normalized = normalize_text(text);
-            terms.iter().all(|term| normalized.contains(term))
-        })
-        .unwrap_or(&document.body);
-
-    truncate_snippet(candidate)
-}
-
-fn normalized_document_text(document: &ExternalKnowledgeDocument) -> String {
-    let mut text = format!("{} {}", document.title, document.body);
-    for section in &document.sections {
-        text.push(' ');
-        text.push_str(&section.heading_path.join(" "));
-        text.push(' ');
-        text.push_str(&section.text);
-    }
-    normalize_text(&text)
-}
-
-fn normalized_terms(query: &str) -> Vec<String> {
-    normalize_text(query)
-        .split_whitespace()
-        .map(ToOwned::to_owned)
-        .collect()
-}
-
-fn normalize_text(text: &str) -> String {
-    text.to_lowercase()
-}
-
-fn truncate_snippet(text: &str) -> String {
-    let compact = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    compact.chars().take(240).collect()
-}
-
-fn handler_error(error: impl std::fmt::Display) -> NexusFlightHandlerError {
-    NexusFlightHandlerError::message(error.to_string())
+    harness.cleanup();
 }
 
 fn string_column<'a>(batch: &'a RecordBatch, name: &str) -> &'a StringArray {
@@ -705,35 +422,4 @@ fn bool_column<'a>(batch: &'a RecordBatch, name: &str) -> &'a BooleanArray {
         .as_any()
         .downcast_ref::<BooleanArray>()
         .unwrap()
-}
-
-fn source_pack_fixture_manifest() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../wendao-nexus-connectors/tests/fixtures/source_packs/medical_demo_pack.toml")
-}
-
-fn customer_private_pack_fixture_manifest() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
-        "../wendao-nexus-connectors/tests/fixtures/source_packs/customer_private_knowledge_pack.toml",
-    )
-}
-
-fn legal_pack_fixture_manifest() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../wendao-nexus-connectors/tests/fixtures/source_packs/legal_compliance_pack.toml")
-}
-
-fn agriculture_pack_fixture_manifest() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../wendao-nexus-connectors/tests/fixtures/source_packs/agriculture_market_pack.toml")
-}
-
-fn artifact_dir(test_name: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("wendao-nexus-{test_name}-{}", uuid::Uuid::new_v4()))
-}
-
-fn cleanup_dir(path: &PathBuf) {
-    if path.exists() {
-        let _ = std::fs::remove_dir_all(path);
-    }
 }

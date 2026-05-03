@@ -127,6 +127,11 @@ async fn runtime_ingest_writes_raw_and_normalized_artifacts() {
         .await
         .unwrap()
         .unwrap();
+    assert_eq!(
+        raw.descriptor.content_hash,
+        outcome.ingest.fetch.content_hash
+    );
+    assert!(artifact_root.join(&raw.descriptor.relative_path).exists());
     assert_eq!(raw.bytes, b"authority bounded artifact evidence");
 
     let normalized = artifact_store
@@ -139,8 +144,20 @@ async fn runtime_ingest_writes_raw_and_normalized_artifacts() {
         .await
         .unwrap()
         .unwrap();
+    assert_eq!(
+        normalized.descriptor.content_hash,
+        outcome.ingest.document.content_hash
+    );
+    assert!(
+        artifact_root
+            .join(&normalized.descriptor.relative_path)
+            .exists()
+    );
     let normalized_json = String::from_utf8(normalized.bytes).unwrap();
     assert!(normalized_json.contains("\"title\": \"doc-1\""));
+    let replayed_document: ExternalKnowledgeDocument =
+        serde_json::from_str(&normalized_json).unwrap();
+    assert_eq!(replayed_document, outcome.ingest.document);
     assert_eq!(
         normalized
             .descriptor
@@ -158,6 +175,66 @@ async fn runtime_ingest_writes_raw_and_normalized_artifacts() {
             .and_then(|checkpoint| checkpoint.last_content_hash)
             .as_deref(),
         Some(outcome.ingest.document.content_hash.as_str())
+    );
+
+    cleanup_dir(&artifact_root);
+}
+
+#[tokio::test]
+async fn runtime_artifact_replay_keeps_deduped_sidecars_stable() {
+    let artifact_root = temp_dir("runtime_artifact_dedup_replay");
+    cleanup_dir(&artifact_root);
+
+    let connector = StaticKnowledgeConnector::new("fixture", KnowledgeSourceKind::WebPage)
+        .with_document("doc-1", "stable replay artifact evidence");
+    let registry = InMemoryNexusRegistry::new();
+    let artifact_store = LocalFileArtifactStore::open(&artifact_root).unwrap();
+    let runtime = NexusSyncRuntime::new(registry);
+
+    let first = runtime
+        .ingest_once_with_artifact_store(
+            &connector,
+            SourceItemRef::new("fixture", "doc-1"),
+            &PlainTextNormalizer,
+            &artifact_store,
+            NormalizationContext::new(KnowledgeSourceKind::WebPage, AuthorityLevel::Curated),
+        )
+        .await
+        .unwrap();
+    let second = runtime
+        .ingest_once_with_artifact_store(
+            &connector,
+            SourceItemRef::new("fixture", "doc-1"),
+            &PlainTextNormalizer,
+            &artifact_store,
+            NormalizationContext::new(KnowledgeSourceKind::WebPage, AuthorityLevel::Curated),
+        )
+        .await
+        .unwrap();
+
+    assert!(second.ingest.fetch.dedup_hit);
+    assert_eq!(second.raw_artifact, first.raw_artifact);
+    assert_eq!(second.normalized_artifact, first.normalized_artifact);
+
+    let replay = artifact_store
+        .get_artifact(
+            "fixture",
+            "doc-1",
+            ArtifactKind::NormalizedDocument,
+            &second.ingest.document.content_hash,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let replayed_document: ExternalKnowledgeDocument =
+        serde_json::from_slice(&replay.bytes).unwrap();
+    assert_eq!(
+        replayed_document.content_hash,
+        second.ingest.document.content_hash
+    );
+    assert_eq!(
+        replayed_document.provenance,
+        second.ingest.document.provenance
     );
 
     cleanup_dir(&artifact_root);

@@ -5,8 +5,8 @@ use wendao_nexus_core::{
     TrustPolicy,
 };
 use wendao_nexus_flight::{
-    EXTERNAL_KNOWLEDGE_SEARCH_ROUTE, NexusFlightCommand, NexusFlightCommandError,
-    NexusFlightStatusRequest, NexusFlightSyncRequest,
+    EXTERNAL_KNOWLEDGE_SEARCH_ROUTE, NEXUS_FLIGHT_COMMAND_SCHEMA_VERSION, NexusFlightCommand,
+    NexusFlightCommandError, NexusFlightStatusRequest, NexusFlightSyncRequest,
 };
 
 #[test]
@@ -40,8 +40,9 @@ fn status_command_json_matches_wire_envelope_snapshot() {
 
     assert_eq!(
         json,
-        r#"{"route":"/knowledge/external/status","payload":{"sources":[]}}"#
+        r#"{"schema_version":1,"route":"/knowledge/external/status","payload":{"sources":[]}}"#
     );
+    assert_eq!(NEXUS_FLIGHT_COMMAND_SCHEMA_VERSION, 1);
 }
 
 #[test]
@@ -108,13 +109,41 @@ fn path_descriptor_is_rejected_for_command_decode() {
 
 #[test]
 fn unsupported_route_is_reported() {
-    let bytes = br#"{"route":"/knowledge/external/unknown","payload":{}}"#;
+    let bytes = br#"{"schema_version":1,"route":"/knowledge/external/unknown","payload":{}}"#;
     let error = NexusFlightCommand::decode_json(bytes).unwrap_err();
 
     assert!(matches!(
         error,
         NexusFlightCommandError::UnsupportedRoute(_)
     ));
+}
+
+#[test]
+fn unsupported_schema_version_is_reported() {
+    let bytes =
+        br#"{"schema_version":2,"route":"/knowledge/external/status","payload":{"sources":[]}}"#;
+    let error = NexusFlightCommand::decode_json(bytes).unwrap_err();
+
+    assert!(matches!(
+        error,
+        NexusFlightCommandError::UnsupportedSchemaVersion(2)
+    ));
+}
+
+#[test]
+fn missing_schema_version_is_rejected() {
+    let bytes = br#"{"route":"/knowledge/external/status","payload":{"sources":[]}}"#;
+    let error = NexusFlightCommand::decode_json(bytes).unwrap_err();
+
+    assert!(matches!(error, NexusFlightCommandError::Json(_)));
+}
+
+#[test]
+fn missing_required_payload_field_is_rejected() {
+    let bytes = br#"{"schema_version":1,"route":"/knowledge/external/open","payload":{"source_id":"wikipedia"}}"#;
+    let error = NexusFlightCommand::decode_json(bytes).unwrap_err();
+
+    assert!(matches!(error, NexusFlightCommandError::Json(_)));
 }
 
 #[test]

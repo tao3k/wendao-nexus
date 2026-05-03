@@ -12,8 +12,8 @@ use super::fixtures::{fixture_manifest, json_fixture_manifest};
 async fn source_pack_loads_manifest_and_local_corpus_connectors() {
     let pack = SourcePack::from_path(fixture_manifest()).unwrap();
 
-    assert_eq!(pack.manifest().source_pack.id, "medical-demo-pack");
-    assert_eq!(pack.manifest().source_pack.version, "0.1.0");
+    assert_eq!(pack.manifest().source_pack.id, "medical-baseline-pack");
+    assert_eq!(pack.manifest().source_pack.version, "2026.04-fixture");
     assert_eq!(
         pack.manifest().source_pack.schema_version,
         SOURCE_PACK_MANIFEST_SCHEMA_VERSION
@@ -82,10 +82,7 @@ fn source_pack_manifest_can_be_parsed_without_loading_connectors() {
         SOURCE_PACK_MANIFEST_SCHEMA_VERSION
     );
     assert_eq!(manifest.sources[0].source_id, "demo-pubmed");
-    assert_eq!(
-        manifest.sources[1].fixture_path,
-        "../corpus/medical/guideline.md"
-    );
+    assert_eq!(manifest.sources[1].fixture_path, "guideline.jsonl");
 }
 
 #[tokio::test]

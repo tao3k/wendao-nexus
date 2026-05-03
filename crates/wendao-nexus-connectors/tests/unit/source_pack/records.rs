@@ -26,8 +26,8 @@ fn source_pack_emits_source_registry_records() {
         records[1].license_policy.as_deref(),
         Some("Fixture License")
     );
-    assert_eq!(records[0].source_pack_id(), Some("medical-demo-pack"));
-    assert_eq!(records[0].source_pack_version(), Some("0.1.0"));
+    assert_eq!(records[0].source_pack_id(), Some("medical-baseline-pack"));
+    assert_eq!(records[0].source_pack_version(), Some("2026.04-fixture"));
     assert_eq!(records[0].source_pack_schema_version(), Some("1"));
     assert_eq!(
         records[0].source_pack_producer(),
@@ -35,12 +35,12 @@ fn source_pack_emits_source_registry_records() {
     );
     assert_eq!(
         records[0].source_pack_display_name(),
-        Some("Medical Demo Pack")
+        Some("Medical Baseline Pack")
     );
     assert_eq!(records[0].source_pack_domain(), SourceDomain::Medical);
     assert_eq!(
         records[1].source_pack_fixture_path(),
-        Some("../corpus/medical/guideline.md")
+        Some("guideline.jsonl")
     );
 }
 

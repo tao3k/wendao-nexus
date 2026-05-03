@@ -1,0 +1,16 @@
+[source_pack]
+id = "legal-compliance-pack"
+version = "2026.04-fixture"
+schema_version = 1
+domain = "legal"
+display_name = "Legal Compliance Pack"
+producer = "wendao-nexus-fixtures"
+authority_level = "Official"
+license = "Public Legal Fixture"
+
+[[sources]]
+source_id = "legal-compliance-demo"
+kind = "LegalCorpus"
+fixture_path = "documents.jsonl"
+canonical_uri_prefix = "legal-fixture://"
+authority_level = "Official"

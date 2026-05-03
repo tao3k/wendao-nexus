@@ -28,7 +28,8 @@ pub use batch::{
     status_record_batch, sync_result_record_batch,
 };
 pub use command::{
-    NexusFlightCommand, NexusFlightCommandError, NexusFlightStatusRequest, NexusFlightSyncRequest,
+    NEXUS_FLIGHT_COMMAND_SCHEMA_VERSION, NexusFlightCommand, NexusFlightCommandError,
+    NexusFlightStatusRequest, NexusFlightSyncRequest, command_descriptor_from_json,
 };
 pub use headers::{
     NEXUS_AUTHORITY_MIN_HEADER, NEXUS_PROVENANCE_SUMMARY_HEADER, NEXUS_ROUTE_HEADER,

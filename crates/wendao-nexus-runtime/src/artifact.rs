@@ -167,6 +167,9 @@ impl ArtifactStore for LocalFileArtifactStore {
             artifact.kind,
             &artifact.content_hash,
         );
+        if let Some(descriptor) = existing_descriptor(&paths).await? {
+            return Ok(descriptor);
+        }
         fs::create_dir_all(&paths.directory)
             .await
             .map_err(|error| {
@@ -302,6 +305,25 @@ impl ArtifactStore for LocalFileArtifactStore {
         });
         Ok(descriptors)
     }
+}
+
+async fn existing_descriptor(paths: &ArtifactPaths) -> NexusResult<Option<ArtifactDescriptor>> {
+    if fs::metadata(&paths.descriptor_path).await.is_err()
+        || fs::metadata(&paths.payload_path).await.is_err()
+    {
+        return Ok(None);
+    }
+
+    let descriptor_bytes = fs::read(&paths.descriptor_path).await.map_err(|error| {
+        artifact_error(format!("read `{}`", paths.descriptor_path.display()), error)
+    })?;
+    let descriptor = serde_json::from_slice(&descriptor_bytes).map_err(|error| {
+        NexusError::Artifact(format!(
+            "parse descriptor `{}`: {error}",
+            paths.descriptor_path.display()
+        ))
+    })?;
+    Ok(Some(descriptor))
 }
 
 fn validate_artifact_write(artifact: &ArtifactWrite) -> NexusResult<()> {

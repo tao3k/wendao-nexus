@@ -11,6 +11,9 @@ use wendao_nexus_core::{
 
 use crate::routes::NexusFlightRoute;
 
+/// Current stable command-envelope schema version.
+pub const NEXUS_FLIGHT_COMMAND_SCHEMA_VERSION: u32 = 1;
+
 /// Request payload for `/knowledge/external/status`.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NexusFlightStatusRequest {
@@ -73,6 +76,7 @@ impl NexusFlightCommand {
             Self::Compare(request) => serde_json::to_value(request)?,
         };
         let envelope = NexusFlightCommandEnvelope {
+            schema_version: NEXUS_FLIGHT_COMMAND_SCHEMA_VERSION,
             route: self.route().as_str().to_string(),
             payload,
         };
@@ -81,6 +85,11 @@ impl NexusFlightCommand {
 
     pub fn decode_json(bytes: &[u8]) -> Result<Self, NexusFlightCommandError> {
         let envelope: NexusFlightCommandEnvelope = serde_json::from_slice(bytes)?;
+        if envelope.schema_version != NEXUS_FLIGHT_COMMAND_SCHEMA_VERSION {
+            return Err(NexusFlightCommandError::UnsupportedSchemaVersion(
+                envelope.schema_version,
+            ));
+        }
         let route = NexusFlightRoute::try_from(envelope.route.as_str())
             .map_err(NexusFlightCommandError::UnsupportedRoute)?;
 
@@ -110,9 +119,17 @@ impl NexusFlightCommand {
     }
 }
 
+/// Build a command descriptor from already-encoded JSON bytes.
+pub fn command_descriptor_from_json(bytes: Vec<u8>) -> FlightDescriptor {
+    FlightDescriptor::new_cmd(bytes)
+}
+
 /// Errors produced while encoding or decoding Nexus Flight commands.
 #[derive(Debug, Error)]
 pub enum NexusFlightCommandError {
+    #[error("unsupported Nexus Flight command schema version: {0}")]
+    UnsupportedSchemaVersion(u32),
+
     #[error("unsupported Nexus Flight route: {0}")]
     UnsupportedRoute(String),
 
@@ -125,6 +142,7 @@ pub enum NexusFlightCommandError {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct NexusFlightCommandEnvelope {
+    schema_version: u32,
     route: String,
     payload: serde_json::Value,
 }

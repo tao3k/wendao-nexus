@@ -1,0 +1,23 @@
+[source_pack]
+id = "medical-baseline-pack"
+version = "2026.04-fixture"
+schema_version = 1
+domain = "medical"
+display_name = "Medical Baseline Pack"
+producer = "wendao-nexus-fixtures"
+authority_level = "Curated"
+license = "Fixture License"
+
+[[sources]]
+source_id = "demo-pubmed"
+kind = "PubMed"
+fixture_path = "documents.jsonl"
+display_name = "Demo PubMed Fixture"
+license = "PubMed Fixture License"
+authority_level = "PeerReviewed"
+
+[[sources]]
+source_id = "demo-guideline"
+kind = "MedicalJournal"
+fixture_path = "guideline.jsonl"
+authority_level = "Curated"

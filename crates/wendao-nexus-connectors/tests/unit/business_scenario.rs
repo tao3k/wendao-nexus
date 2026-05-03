@@ -12,10 +12,7 @@ use wendao_nexus_core::{
 async fn customer_private_knowledge_pack_preserves_business_metadata() {
     let pack = SourcePack::from_path(customer_private_pack_manifest()).unwrap();
 
-    assert_eq!(
-        pack.manifest().source_pack.id,
-        "customer-private-knowledge-pack"
-    );
+    assert_eq!(pack.manifest().source_pack.id, "customer-private-sop-pack");
     assert_eq!(
         pack.manifest().source_pack.authority_level,
         Some(AuthorityLevel::CustomerInternal)
@@ -42,15 +39,15 @@ async fn customer_private_knowledge_pack_preserves_business_metadata() {
     assert!(!sop_record.capabilities.live_query);
     assert_eq!(
         sop_record.source_pack_id(),
-        Some("customer-private-knowledge-pack")
+        Some("customer-private-sop-pack")
     );
     assert_eq!(
         sop_record.source_pack_display_name(),
-        Some("Customer Private Knowledge Pack")
+        Some("Customer Private SOP Pack")
     );
     assert_eq!(
         sop_record.source_pack_fixture_path(),
-        Some("../corpus/customer/sop.jsonl")
+        Some("documents.jsonl")
     );
 
     let crm_record = records
@@ -103,6 +100,31 @@ async fn customer_private_knowledge_pack_preserves_business_metadata() {
         Some("internal_only")
     );
     assert!(intake.source_updated_at.is_some());
+}
+
+#[tokio::test]
+async fn directory_first_source_packs_match_expected_snapshots() {
+    for pack_root in [
+        customer_private_pack_root(),
+        legal_compliance_pack_root(),
+        agriculture_market_pack_root(),
+        medical_baseline_pack_root(),
+    ] {
+        let pack = SourcePack::from_path(pack_root.join("source_pack.toml")).unwrap();
+
+        assert_eq!(
+            source_pack_search_snapshot(&pack).await,
+            expected_snapshot(&pack_root, "expected_search.snap")
+        );
+        assert_eq!(
+            source_pack_open_snapshot(&pack).await,
+            expected_snapshot(&pack_root, "expected_open.snap")
+        );
+        assert_eq!(
+            source_pack_status_snapshot(&pack),
+            expected_snapshot(&pack_root, "expected_status.snap")
+        );
+    }
 }
 
 #[tokio::test]
@@ -192,16 +214,109 @@ async fn agriculture_market_pack_preserves_market_signal_metadata() {
 }
 
 fn customer_private_pack_manifest() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/source_packs/customer_private_knowledge_pack.toml")
+    customer_private_pack_root().join("source_pack.toml")
 }
 
 fn legal_compliance_pack_manifest() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/source_packs/legal_compliance_pack.toml")
+    legal_compliance_pack_root().join("source_pack.toml")
 }
 
 fn agriculture_market_pack_manifest() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/source_packs/agriculture_market_pack.toml")
+    agriculture_market_pack_root().join("source_pack.toml")
+}
+
+fn customer_private_pack_root() -> PathBuf {
+    source_pack_root("customer_private_sop")
+}
+
+fn legal_compliance_pack_root() -> PathBuf {
+    source_pack_root("legal_compliance")
+}
+
+fn agriculture_market_pack_root() -> PathBuf {
+    source_pack_root("agriculture_market")
+}
+
+fn medical_baseline_pack_root() -> PathBuf {
+    source_pack_root("medical_baseline")
+}
+
+fn source_pack_root(pack: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/source_packs/{pack}"))
+}
+
+async fn source_pack_search_snapshot(pack: &SourcePack) -> String {
+    let mut rows = Vec::new();
+    for connector in pack.connectors() {
+        let source = pack.source(connector.source_id()).unwrap();
+        let authority = source
+            .authority_level
+            .or(pack.manifest().source_pack.authority_level)
+            .unwrap_or(AuthorityLevel::Unknown);
+        let discovered = connector.discover(None).await.unwrap();
+        for item in discovered.items {
+            let document = connector.fetch(item).await.unwrap();
+            rows.push(format!(
+                "{}|{}|{}|{:?}|{:?}|{}",
+                connector.source_id(),
+                document.external_id,
+                document.title_metadata().unwrap_or(""),
+                source.kind,
+                authority,
+                document
+                    .metadata
+                    .get(EVIDENCE_KIND_METADATA_KEY)
+                    .map(String::as_str)
+                    .unwrap_or("document")
+            ));
+        }
+    }
+    rows.sort();
+    rows.join("\n")
+}
+
+async fn source_pack_open_snapshot(pack: &SourcePack) -> String {
+    let mut rows = Vec::new();
+    for connector in pack.connectors() {
+        let discovered = connector.discover(None).await.unwrap();
+        for item in discovered.items {
+            let document = connector.fetch(item).await.unwrap();
+            rows.push(format!(
+                "{}|{}|{}|{}",
+                document.external_id,
+                document.canonical_uri,
+                document.license_name_metadata().unwrap_or(""),
+                document.license_usage_policy_metadata().unwrap_or("")
+            ));
+        }
+    }
+    rows.sort();
+    rows.join("\n")
+}
+
+fn source_pack_status_snapshot(pack: &SourcePack) -> String {
+    let mut rows = pack
+        .source_records()
+        .into_iter()
+        .map(|record| {
+            format!(
+                "{}|{}|{:?}|{:?}|{}|{}",
+                record.source_id,
+                record.enabled,
+                record.source_kind,
+                record.authority_level,
+                record.license_policy.as_deref().unwrap_or_default(),
+                record.source_pack_domain().wire_label()
+            )
+        })
+        .collect::<Vec<_>>();
+    rows.sort();
+    rows.join("\n")
+}
+
+fn expected_snapshot(pack_root: &std::path::Path, file_name: &str) -> String {
+    std::fs::read_to_string(pack_root.join(file_name))
+        .unwrap()
+        .trim_end()
+        .to_string()
 }
