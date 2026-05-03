@@ -1,7 +1,7 @@
 //! Typed command encoding for `FlightDescriptor::cmd` payloads.
 
-use arrow_flight::flight_descriptor::DescriptorType;
 use arrow_flight::FlightDescriptor;
+use arrow_flight::flight_descriptor::DescriptorType;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wendao_nexus_core::{

@@ -1,0 +1,25 @@
+{
+  "source_pack": {
+    "id": "medical-demo-pack-json",
+    "version": "0.1.0",
+    "domain": "medical",
+    "display_name": "Medical Demo Pack JSON",
+    "authority_level": "Curated",
+    "license": "Fixture License"
+  },
+  "sources": [
+    {
+      "source_id": "demo-pubmed-json",
+      "kind": "PubMed",
+      "fixture_path": "../corpus/medical/articles.jsonl",
+      "canonical_uri_prefix": "https://pubmed.ncbi.nlm.nih.gov/",
+      "authority_level": "PeerReviewed"
+    },
+    {
+      "source_id": "demo-guideline-json",
+      "kind": "MedicalJournal",
+      "fixture_path": "../corpus/medical/guideline.md",
+      "authority_level": "Curated"
+    }
+  ]
+}

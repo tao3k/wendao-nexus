@@ -1,4 +1,8 @@
-//! Normalization contracts for turning raw source payloads into documents.
+//! Normalization contracts for already-text fixture payloads and Wendao handoff.
+//!
+//! This crate does not own document parsing. Production parsing for Markdown,
+//! HTML, XML, PDF, Docling artifacts, or database rows belongs to the Wendao
+//! side, which can hand normalized evidence back through core contracts.
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -32,7 +36,10 @@ impl NormalizationContext {
     }
 }
 
-/// Normalizer boundary for source-specific extraction and metadata shaping.
+/// Contract boundary for turning already-extracted payloads into Nexus records.
+///
+/// Implementations in this repository are deterministic fixture shims. Parser
+/// execution belongs to the embedding Wendao-side runtime.
 #[async_trait]
 pub trait KnowledgeDocumentNormalizer: Send + Sync {
     async fn normalize(
@@ -42,7 +49,10 @@ pub trait KnowledgeDocumentNormalizer: Send + Sync {
     ) -> NexusResult<ExternalKnowledgeDocument>;
 }
 
-/// Deterministic UTF-8 text normalizer for tests and simple customer corpora.
+/// Deterministic UTF-8 text normalizer for tests and fixture corpora.
+///
+/// This is not a production parser. It assumes the payload is already text and
+/// only maps standard metadata/provenance fields into Nexus contracts.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PlainTextNormalizer;
 
@@ -74,7 +84,7 @@ impl KnowledgeDocumentNormalizer for PlainTextNormalizer {
         let title = context
             .title
             .clone()
-            .or_else(|| raw.metadata.get("title").cloned())
+            .or_else(|| raw.title_metadata().map(ToOwned::to_owned))
             .unwrap_or_else(|| raw.external_id.clone());
         let provenance = provenance_from_raw(&raw, &context, &metadata, &content_hash);
         let license = license_from_raw(&raw);
@@ -113,34 +123,20 @@ fn is_text_media_type(media_type: &str) -> bool {
 
 fn source_metadata_from_raw(raw: &RawSourceDocument) -> SourceMetadata {
     SourceMetadata {
-        authors: raw
-            .metadata
-            .get("authors")
-            .map(|authors| split_list(authors))
-            .unwrap_or_default(),
-        published_at: raw
-            .metadata
-            .get("published_at")
-            .and_then(|value| parse_rfc3339_utc(value)),
-        updated_at: raw.source_updated_at.or_else(|| {
-            raw.metadata
-                .get("updated_at")
-                .and_then(|value| parse_rfc3339_utc(value))
-        }),
-        doi: raw.metadata.get("doi").cloned(),
-        pmid: raw.metadata.get("pmid").cloned(),
+        authors: raw.authors_metadata().map(split_list).unwrap_or_default(),
+        published_at: raw.published_at_metadata().and_then(parse_rfc3339_utc),
+        updated_at: raw
+            .source_updated_at
+            .or_else(|| raw.updated_at_metadata().and_then(parse_rfc3339_utc)),
+        doi: raw.doi_metadata().map(ToOwned::to_owned),
+        pmid: raw.pmid_metadata().map(ToOwned::to_owned),
         mesh_terms: raw
-            .metadata
-            .get("mesh_terms")
-            .map(|mesh_terms| split_list(mesh_terms))
+            .mesh_terms_metadata()
+            .map(split_list)
             .unwrap_or_default(),
-        jurisdiction: raw.metadata.get("jurisdiction").cloned(),
-        tenant_id: raw.metadata.get("tenant_id").cloned(),
-        acl_tags: raw
-            .metadata
-            .get("acl_tags")
-            .map(|acl_tags| split_list(acl_tags))
-            .unwrap_or_default(),
+        jurisdiction: raw.jurisdiction_metadata().map(ToOwned::to_owned),
+        tenant_id: raw.tenant_id_metadata().map(ToOwned::to_owned),
+        acl_tags: raw.acl_tags_metadata().map(split_list).unwrap_or_default(),
         extra: raw.metadata.clone(),
     }
 }
@@ -156,8 +152,8 @@ fn provenance_from_raw(
         source_kind: context.source_kind.clone(),
         authority_level: context.authority_level,
         canonical_uri: raw.canonical_uri.clone(),
-        version: raw.metadata.get("version").cloned(),
-        revision_id: raw.metadata.get("revision_id").cloned(),
+        version: raw.version_metadata().map(ToOwned::to_owned),
+        revision_id: raw.revision_id_metadata().map(ToOwned::to_owned),
         doi: metadata.doi.clone(),
         pmid: metadata.pmid.clone(),
         jurisdiction: metadata.jurisdiction.clone(),
@@ -169,10 +165,10 @@ fn provenance_from_raw(
 }
 
 fn license_from_raw(raw: &RawSourceDocument) -> Option<LicenseInfo> {
-    raw.metadata.get("license").map(|name| LicenseInfo {
-        name: name.clone(),
-        url: raw.metadata.get("license_url").cloned(),
-        usage_policy: raw.metadata.get("license_usage_policy").cloned(),
+    raw.license_name_metadata().map(|name| LicenseInfo {
+        name: name.to_string(),
+        url: raw.license_url_metadata().map(ToOwned::to_owned),
+        usage_policy: raw.license_usage_policy_metadata().map(ToOwned::to_owned),
     })
 }
 

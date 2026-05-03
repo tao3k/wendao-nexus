@@ -38,6 +38,22 @@ impl NexusFlightCommandHandler for StubHandler {
             fetched_at: None,
             content_hash: "sha256:doc-1".to_string(),
             provenance_json: None,
+            section_id: None,
+            heading_path_json: None,
+            source_kind: Some("PubMed".to_string()),
+            published_at: None,
+            source_updated_at: None,
+            trust_score: None,
+            freshness_score: None,
+            semantic_score: Some(0.9),
+            lexical_score: None,
+            rerank_score: None,
+            license_json: None,
+            metadata_json: None,
+            doi: None,
+            pmid: None,
+            jurisdiction: None,
+            evidence_kind: Some("document".to_string()),
         }])
     }
 

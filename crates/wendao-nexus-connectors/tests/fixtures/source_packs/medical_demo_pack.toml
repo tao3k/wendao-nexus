@@ -1,0 +1,19 @@
+[source_pack]
+id = "medical-demo-pack"
+version = "0.1.0"
+domain = "medical"
+display_name = "Medical Demo Pack"
+authority_level = "Curated"
+license = "Fixture License"
+
+[[sources]]
+source_id = "demo-pubmed"
+kind = "PubMed"
+fixture_path = "../corpus/medical/articles.jsonl"
+authority_level = "PeerReviewed"
+
+[[sources]]
+source_id = "demo-guideline"
+kind = "MedicalJournal"
+fixture_path = "../corpus/medical/guideline.md"
+authority_level = "Curated"

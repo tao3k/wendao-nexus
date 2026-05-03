@@ -5,8 +5,8 @@ use wendao_nexus_core::{
     TrustPolicy,
 };
 use wendao_nexus_flight::{
-    NexusFlightCommand, NexusFlightCommandError, NexusFlightStatusRequest, NexusFlightSyncRequest,
-    EXTERNAL_KNOWLEDGE_SEARCH_ROUTE,
+    EXTERNAL_KNOWLEDGE_SEARCH_ROUTE, NexusFlightCommand, NexusFlightCommandError,
+    NexusFlightStatusRequest, NexusFlightSyncRequest,
 };
 
 #[test]
@@ -31,6 +31,17 @@ fn encoded_command_uses_canonical_route_string() {
 
     assert!(json.contains(EXTERNAL_KNOWLEDGE_SEARCH_ROUTE));
     assert!(!json.contains("\"Search\""));
+}
+
+#[test]
+fn status_command_json_matches_wire_envelope_snapshot() {
+    let command = NexusFlightCommand::Status(NexusFlightStatusRequest::all_sources());
+    let json = String::from_utf8(command.encode_json().unwrap()).unwrap();
+
+    assert_eq!(
+        json,
+        r#"{"route":"/knowledge/external/status","payload":{"sources":[]}}"#
+    );
 }
 
 #[test]
@@ -104,4 +115,11 @@ fn unsupported_route_is_reported() {
         error,
         NexusFlightCommandError::UnsupportedRoute(_)
     ));
+}
+
+#[test]
+fn malformed_json_is_reported() {
+    let error = NexusFlightCommand::decode_json(br#"{"route":"#).unwrap_err();
+
+    assert!(matches!(error, NexusFlightCommandError::Json(_)));
 }

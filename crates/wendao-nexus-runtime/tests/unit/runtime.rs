@@ -1,13 +1,12 @@
 use chrono::Utc;
 use wendao_nexus_connectors::StaticKnowledgeConnector;
 use wendao_nexus_core::{
-    AuthorityLevel, ExternalKnowledgeDocument, ExternalKnowledgeSearchRequest, KnowledgeSection,
-    KnowledgeSourceKind, NexusJobKind, NexusJobStatus, ProvenanceRecord, SourceItemRef,
-    SourceMetadata, TrustPolicy,
+    AuthorityLevel, ExternalKnowledgeDocument, KnowledgeSection, KnowledgeSourceKind, NexusJobKind,
+    NexusJobStatus, ProvenanceRecord, SourceItemRef, SourceMetadata,
 };
 use wendao_nexus_runtime::{
-    CheckpointRegistry, InMemoryKnowledgeStore, InMemoryNexusRegistry, JobRegistry,
-    LocalKnowledgeStore, NexusSyncRuntime, NormalizationContext, PlainTextNormalizer,
+    ArtifactKind, ArtifactStore, CheckpointRegistry, InMemoryNexusRegistry, JobRegistry,
+    LocalFileArtifactStore, NexusSyncRuntime, NormalizationContext, PlainTextNormalizer,
 };
 
 #[tokio::test]
@@ -21,12 +20,14 @@ async fn runtime_discovers_and_checkpoints_source() {
 
     assert_eq!(outcome.job.status, NexusJobStatus::Succeeded);
     assert_eq!(outcome.batch.items.len(), 1);
-    assert!(runtime
-        .registry()
-        .get_checkpoint("fixture")
-        .await
-        .unwrap()
-        .is_some());
+    assert!(
+        runtime
+            .registry()
+            .get_checkpoint("fixture")
+            .await
+            .unwrap()
+            .is_some()
+    );
 }
 
 #[tokio::test]
@@ -52,11 +53,10 @@ async fn runtime_marks_duplicate_fetches_as_deduped() {
 }
 
 #[tokio::test]
-async fn runtime_ingests_fetched_document_into_local_store() {
+async fn runtime_ingests_fetched_document_as_normalized_handoff() {
     let connector = StaticKnowledgeConnector::new("fixture", KnowledgeSourceKind::WebPage)
         .with_document("doc-1", "authority bounded evidence");
     let registry = InMemoryNexusRegistry::new();
-    let store = InMemoryKnowledgeStore::new();
     let runtime = NexusSyncRuntime::new(registry);
 
     let outcome = runtime
@@ -64,7 +64,6 @@ async fn runtime_ingests_fetched_document_into_local_store() {
             &connector,
             SourceItemRef::new("fixture", "doc-1"),
             &PlainTextNormalizer,
-            &store,
             NormalizationContext::new(KnowledgeSourceKind::WebPage, AuthorityLevel::Curated),
         )
         .await
@@ -73,13 +72,7 @@ async fn runtime_ingests_fetched_document_into_local_store() {
     assert_eq!(outcome.fetch.job.status, NexusJobStatus::Succeeded);
     assert_eq!(outcome.normalize_job.status, NexusJobStatus::Succeeded);
     assert_eq!(outcome.document.title, "doc-1");
-
-    let mut search = ExternalKnowledgeSearchRequest::new("authority evidence");
-    search.trust_policy = TrustPolicy::authority_at_least(AuthorityLevel::Curated);
-    let response = store.search(search).await.unwrap();
-
-    assert_eq!(response.records.len(), 1);
-    assert_eq!(response.records[0].external_id, "doc-1");
+    assert_eq!(outcome.document.body, "authority bounded evidence");
     assert_eq!(
         runtime
             .registry()
@@ -93,9 +86,86 @@ async fn runtime_ingests_fetched_document_into_local_store() {
 }
 
 #[tokio::test]
-async fn runtime_upserts_wendao_normalized_document_into_local_store() {
+async fn runtime_ingest_writes_raw_and_normalized_artifacts() {
+    let artifact_root = temp_dir("runtime_artifacts");
+    cleanup_dir(&artifact_root);
+
+    let connector = StaticKnowledgeConnector::new("fixture", KnowledgeSourceKind::WebPage)
+        .with_document("doc-1", "authority bounded artifact evidence");
     let registry = InMemoryNexusRegistry::new();
-    let store = InMemoryKnowledgeStore::new();
+    let artifact_store = LocalFileArtifactStore::open(&artifact_root).unwrap();
+    let runtime = NexusSyncRuntime::new(registry);
+
+    let outcome = runtime
+        .ingest_once_with_artifact_store(
+            &connector,
+            SourceItemRef::new("fixture", "doc-1"),
+            &PlainTextNormalizer,
+            &artifact_store,
+            NormalizationContext::new(KnowledgeSourceKind::WebPage, AuthorityLevel::Curated),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        outcome.ingest.normalize_job.status,
+        NexusJobStatus::Succeeded
+    );
+    assert_eq!(outcome.raw_artifact.kind, ArtifactKind::RawSourcePayload);
+    assert_eq!(
+        outcome.normalized_artifact.kind,
+        ArtifactKind::NormalizedDocument
+    );
+
+    let raw = artifact_store
+        .get_artifact(
+            "fixture",
+            "doc-1",
+            ArtifactKind::RawSourcePayload,
+            &outcome.ingest.fetch.content_hash,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(raw.bytes, b"authority bounded artifact evidence");
+
+    let normalized = artifact_store
+        .get_artifact(
+            "fixture",
+            "doc-1",
+            ArtifactKind::NormalizedDocument,
+            &outcome.ingest.document.content_hash,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let normalized_json = String::from_utf8(normalized.bytes).unwrap();
+    assert!(normalized_json.contains("\"title\": \"doc-1\""));
+    assert_eq!(
+        normalized
+            .descriptor
+            .metadata
+            .get("authority_level")
+            .map(String::as_str),
+        Some("Curated")
+    );
+    assert_eq!(
+        runtime
+            .registry()
+            .get_checkpoint("fixture")
+            .await
+            .unwrap()
+            .and_then(|checkpoint| checkpoint.last_content_hash)
+            .as_deref(),
+        Some(outcome.ingest.document.content_hash.as_str())
+    );
+
+    cleanup_dir(&artifact_root);
+}
+
+#[tokio::test]
+async fn runtime_accepts_wendao_normalized_document_handoff() {
+    let registry = InMemoryNexusRegistry::new();
     let runtime = NexusSyncRuntime::new(registry);
     let document = normalized_document_fixture(
         "attachments",
@@ -105,7 +175,7 @@ async fn runtime_upserts_wendao_normalized_document_into_local_store() {
     );
 
     let outcome = runtime
-        .upsert_normalized_document(document.clone(), &store)
+        .accept_normalized_document(document.clone())
         .await
         .unwrap();
 
@@ -113,13 +183,6 @@ async fn runtime_upserts_wendao_normalized_document_into_local_store() {
     assert_eq!(outcome.job.status, NexusJobStatus::Succeeded);
     assert!(!outcome.dedup_hit);
     assert_eq!(outcome.document.external_id, "protocol.docx");
-
-    let response = store
-        .search(ExternalKnowledgeSearchRequest::new("regulated protocol"))
-        .await
-        .unwrap();
-    assert_eq!(response.records.len(), 1);
-    assert_eq!(response.records[0].source_id, "attachments");
     assert_eq!(
         runtime
             .registry()
@@ -131,10 +194,7 @@ async fn runtime_upserts_wendao_normalized_document_into_local_store() {
         Some("sha256:wendao-parsed-protocol")
     );
 
-    let duplicate = runtime
-        .upsert_normalized_document(document, &store)
-        .await
-        .unwrap();
+    let duplicate = runtime.accept_normalized_document(document).await.unwrap();
     assert_eq!(duplicate.job.status, NexusJobStatus::Deduped);
     assert!(duplicate.dedup_hit);
 }
@@ -142,7 +202,6 @@ async fn runtime_upserts_wendao_normalized_document_into_local_store() {
 #[tokio::test]
 async fn runtime_rejects_inconsistent_normalized_document_handoff() {
     let registry = InMemoryNexusRegistry::new();
-    let store = InMemoryKnowledgeStore::new();
     let runtime = NexusSyncRuntime::new(registry);
     let mut document = normalized_document_fixture(
         "attachments",
@@ -153,16 +212,11 @@ async fn runtime_rejects_inconsistent_normalized_document_handoff() {
     document.provenance.content_hash = "sha256:other".to_string();
 
     let error = runtime
-        .upsert_normalized_document(document, &store)
+        .accept_normalized_document(document)
         .await
         .unwrap_err();
 
     assert!(error.to_string().contains("content_hash"));
-    assert!(store
-        .get_document("attachments", "protocol.docx")
-        .await
-        .unwrap()
-        .is_none());
 
     let jobs = runtime
         .registry()
@@ -172,11 +226,23 @@ async fn runtime_rejects_inconsistent_normalized_document_handoff() {
     assert_eq!(jobs.len(), 1);
     assert_eq!(jobs[0].job_kind, NexusJobKind::Ingest);
     assert_eq!(jobs[0].status, NexusJobStatus::Failed);
-    assert!(jobs[0]
-        .error
-        .as_deref()
-        .unwrap_or_default()
-        .contains("content_hash"));
+    assert!(
+        jobs[0]
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("content_hash")
+    );
+}
+
+fn temp_dir(test_name: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("wendao-nexus-{test_name}-{}", uuid::Uuid::new_v4()))
+}
+
+fn cleanup_dir(path: &std::path::PathBuf) {
+    if path.exists() {
+        let _ = std::fs::remove_dir_all(path);
+    }
 }
 
 fn normalized_document_fixture(

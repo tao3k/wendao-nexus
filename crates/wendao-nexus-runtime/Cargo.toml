@@ -12,14 +12,12 @@ publish = false
 async-trait.workspace = true
 blake3.workspace = true
 chrono.workspace = true
-futures.workspace = true
 hex.workspace = true
-reqwest.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
-tower.workspace = true
 uuid.workspace = true
 wendao-nexus-core = { path = "../wendao-nexus-core" }
 

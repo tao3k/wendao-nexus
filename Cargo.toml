@@ -10,10 +10,10 @@ resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
-license = "MIT OR Apache-2.0"
+edition = "2024"
+license = "Apache-2.0"
 repository = "https://github.com/tao3k/wendao-nexus"
-rust-version = "1.80"
+rust-version = "1.85.1"
 
 [workspace.dependencies]
 async-trait = "0.1"
@@ -23,17 +23,15 @@ arrow-ipc = "58"
 arrow-schema = { version = "58", features = ["ffi"] }
 blake3 = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
-futures = "0.3"
 hex = "0.4"
 prost = "0.14"
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 rust-lang-project-harness = { git = "https://github.com/tao3k/rust-lang-project-harness", rev = "4bb9fb73517c3d19418202a33f9d91b25d15fb3d" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
+toml = "1.1.2"
 tonic = { version = "0.14", default-features = false, features = ["transport"] }
-tower = { version = "0.5", features = ["limit", "timeout", "util"] }
 url = "2"
 uuid = { version = "1", features = ["v4", "serde"] }

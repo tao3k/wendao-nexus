@@ -26,6 +26,9 @@ pub enum NexusError {
     #[error("registry error: {0}")]
     Registry(String),
 
+    #[error("artifact store error: {0}")]
+    Artifact(String),
+
     #[error("normalization error: {0}")]
     Normalize(String),
 

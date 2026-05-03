@@ -35,17 +35,6 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
     default_rust_harness_config()
         .with_verification_profile_hint(
             RustVerificationProfileHint::new(
-                "src/local_mirror_handler.rs",
-                [
-                    RustOwnerResponsibility::PublicApi,
-                    RustOwnerResponsibility::ExternalDependency,
-                    RustOwnerResponsibility::AvailabilityCritical,
-                ],
-            )
-            .with_rationale("local mirror handler composes Nexus protocol and runtime contracts"),
-        )
-        .with_verification_profile_hint(
-            RustVerificationProfileHint::new(
                 "src/customer_corpus.rs",
                 [
                     RustOwnerResponsibility::PublicApi,
@@ -56,6 +45,31 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
         )
         .with_verification_profile_hint(
             RustVerificationProfileHint::new(
+                "src/external_database.rs",
+                [
+                    RustOwnerResponsibility::PublicApi,
+                    RustOwnerResponsibility::ExternalDependency,
+                ],
+            )
+            .with_rationale(
+                "external database connector exposes source identity, endpoint, auth, and capability contracts",
+            ),
+        )
+        .with_verification_profile_hint(
+            RustVerificationProfileHint::new(
+                "src/local_corpus.rs",
+                [
+                    RustOwnerResponsibility::PublicApi,
+                    RustOwnerResponsibility::ExternalDependency,
+                    RustOwnerResponsibility::Persistence,
+                ],
+            )
+            .with_rationale(
+                "local corpus connector reads deterministic fixture files for source-pack validation",
+            ),
+        )
+        .with_verification_profile_hint(
+            RustVerificationProfileHint::new(
                 "src/pubmed.rs",
                 [
                     RustOwnerResponsibility::PublicApi,
@@ -63,6 +77,19 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
                 ],
             )
             .with_rationale("PubMed connector exposes source-specific adapter contracts"),
+        )
+        .with_verification_profile_hint(
+            RustVerificationProfileHint::new(
+                "src/source_pack.rs",
+                [
+                    RustOwnerResponsibility::PublicApi,
+                    RustOwnerResponsibility::ExternalDependency,
+                    RustOwnerResponsibility::Persistence,
+                ],
+            )
+            .with_rationale(
+                "source pack loader parses deterministic manifest files into source records and local corpus connectors",
+            ),
         )
         .with_verification_profile_hint(
             RustVerificationProfileHint::new(
@@ -114,7 +141,9 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
                     RustOwnerResponsibility::ExternalDependency,
                 ],
             )
-            .with_rationale("query surfaces expose public contracts and may bind local stores"),
+            .with_rationale(
+                "query request and evidence response types are public protocol contracts",
+            ),
         )
         .with_verification_profile_hint(
             RustVerificationProfileHint::new("src/source.rs", [RustOwnerResponsibility::PublicApi])
@@ -191,6 +220,19 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
         )
         .with_verification_profile_hint(
             RustVerificationProfileHint::new(
+                "src/artifact.rs",
+                [
+                    RustOwnerResponsibility::PublicApi,
+                    RustOwnerResponsibility::ExternalDependency,
+                    RustOwnerResponsibility::AvailabilityCritical,
+                ],
+            )
+            .with_rationale(
+                "artifact store persists raw source payloads and normalized evidence sidecars",
+            ),
+        )
+        .with_verification_profile_hint(
+            RustVerificationProfileHint::new(
                 "src/normalize.rs",
                 [
                     RustOwnerResponsibility::PublicApi,
@@ -217,7 +259,7 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
                     RustOwnerResponsibility::ExternalDependency,
                 ],
             )
-            .with_rationale("sync runtime orchestrates connectors, registries, and local mirrors"),
+            .with_rationale("sync runtime orchestrates connectors, registries, and normalized evidence handoff"),
         )
         .with_verification_dependency_signal(RustVerificationDependencySignal::new(
             "arrow-array",
@@ -266,6 +308,13 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
             [
                 RustOwnerResponsibility::ExternalDependency,
                 RustOwnerResponsibility::AvailabilityCritical,
+            ],
+        ))
+        .with_verification_dependency_signal(RustVerificationDependencySignal::new(
+            "toml",
+            [
+                RustOwnerResponsibility::ExternalDependency,
+                RustOwnerResponsibility::Persistence,
             ],
         ))
         .with_verification_dependency_signal(RustVerificationDependencySignal::new(

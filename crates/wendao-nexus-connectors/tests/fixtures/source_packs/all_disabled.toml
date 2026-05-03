@@ -1,0 +1,9 @@
+[source_pack]
+id = "all-disabled-source-pack"
+version = "0.1.0"
+
+[[sources]]
+source_id = "disabled-pubmed"
+kind = "PubMed"
+fixture_path = "../corpus/medical/articles.jsonl"
+enabled = false

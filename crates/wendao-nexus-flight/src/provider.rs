@@ -10,9 +10,9 @@ use wendao_nexus_core::{
 };
 
 use crate::batch::{
-    compare_result_record_batch, open_document_record_batch, search_result_record_batch,
-    status_record_batch, sync_result_record_batch, FlightCompareResultRow, FlightOpenDocumentRow,
-    FlightSearchResultRow, FlightStatusRow, FlightSyncResultRow,
+    FlightCompareResultRow, FlightOpenDocumentRow, FlightSearchResultRow, FlightStatusRow,
+    FlightSyncResultRow, compare_result_record_batch, open_document_record_batch,
+    search_result_record_batch, status_record_batch, sync_result_record_batch,
 };
 use crate::command::{
     NexusFlightCommand, NexusFlightCommandError, NexusFlightStatusRequest, NexusFlightSyncRequest,

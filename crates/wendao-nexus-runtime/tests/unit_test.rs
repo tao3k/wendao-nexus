@@ -1,3 +1,9 @@
+#[path = "unit/artifact.rs"]
+mod artifact;
+
+#[path = "unit/business_scenario.rs"]
+mod business_scenario;
+
 #[path = "unit/hash.rs"]
 mod hash;
 
@@ -6,9 +12,6 @@ mod normalize;
 
 #[path = "unit/registry.rs"]
 mod registry;
-
-#[path = "unit/query.rs"]
-mod query;
 
 #[path = "unit/runtime.rs"]
 mod runtime;

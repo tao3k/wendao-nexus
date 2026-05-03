@@ -1,0 +1,18 @@
+[source_pack]
+id = "disabled-source-pack"
+version = "0.1.0"
+display_name = "Disabled Source Pack"
+authority_level = "Curated"
+
+[[sources]]
+source_id = "enabled-guideline"
+kind = "MedicalJournal"
+fixture_path = "../corpus/medical/guideline.md"
+authority_level = "Curated"
+
+[[sources]]
+source_id = "disabled-pubmed"
+kind = "PubMed"
+fixture_path = "../corpus/medical/articles.jsonl"
+authority_level = "PeerReviewed"
+enabled = false

@@ -31,6 +31,22 @@ pub struct FlightSearchResultRow {
     pub fetched_at: Option<DateTime<Utc>>,
     pub content_hash: String,
     pub provenance_json: Option<String>,
+    pub section_id: Option<String>,
+    pub heading_path_json: Option<String>,
+    pub source_kind: Option<String>,
+    pub published_at: Option<DateTime<Utc>>,
+    pub source_updated_at: Option<DateTime<Utc>>,
+    pub trust_score: Option<f64>,
+    pub freshness_score: Option<f64>,
+    pub semantic_score: Option<f64>,
+    pub lexical_score: Option<f64>,
+    pub rerank_score: Option<f64>,
+    pub license_json: Option<String>,
+    pub metadata_json: Option<String>,
+    pub doi: Option<String>,
+    pub pmid: Option<String>,
+    pub jurisdiction: Option<String>,
+    pub evidence_kind: Option<String>,
 }
 
 impl TryFrom<&EvidenceRecord> for FlightSearchResultRow {
@@ -52,6 +68,25 @@ impl TryFrom<&EvidenceRecord> for FlightSearchResultRow {
             fetched_at: Some(primary.fetched_at),
             content_hash: primary.content_hash.clone(),
             provenance_json: Some(serde_json::to_string(&record.provenance)?),
+            section_id: None,
+            heading_path_json: None,
+            source_kind: Some(format!("{:?}", primary.source_kind)),
+            published_at: primary.published_at,
+            source_updated_at: None,
+            trust_score: None,
+            freshness_score: None,
+            semantic_score: record
+                .score
+                .as_deref()
+                .and_then(|score| score.parse::<f64>().ok()),
+            lexical_score: None,
+            rerank_score: None,
+            license_json: None,
+            metadata_json: None,
+            doi: primary.doi.clone(),
+            pmid: primary.pmid.clone(),
+            jurisdiction: primary.jurisdiction.clone(),
+            evidence_kind: Some(record.evidence_kind.wire_label()),
         })
     }
 }
@@ -191,6 +226,22 @@ pub fn search_result_record_batch(
     let mut fetched_at = utc_timestamp_builder();
     let mut content_hashes = StringBuilder::new();
     let mut provenance_json = StringBuilder::new();
+    let mut section_ids = StringBuilder::new();
+    let mut heading_paths = StringBuilder::new();
+    let mut source_kinds = StringBuilder::new();
+    let mut published_at = utc_timestamp_builder();
+    let mut source_updated_at = utc_timestamp_builder();
+    let mut trust_scores = Float64Builder::new();
+    let mut freshness_scores = Float64Builder::new();
+    let mut semantic_scores = Float64Builder::new();
+    let mut lexical_scores = Float64Builder::new();
+    let mut rerank_scores = Float64Builder::new();
+    let mut license_json = StringBuilder::new();
+    let mut metadata_json = StringBuilder::new();
+    let mut dois = StringBuilder::new();
+    let mut pmids = StringBuilder::new();
+    let mut jurisdictions = StringBuilder::new();
+    let mut evidence_kinds = StringBuilder::new();
 
     for row in rows {
         source_ids.append_value(&row.source_id);
@@ -203,6 +254,22 @@ pub fn search_result_record_batch(
         append_optional_timestamp(&mut fetched_at, row.fetched_at);
         content_hashes.append_value(&row.content_hash);
         append_optional_string(&mut provenance_json, row.provenance_json.as_deref());
+        append_optional_string(&mut section_ids, row.section_id.as_deref());
+        append_optional_string(&mut heading_paths, row.heading_path_json.as_deref());
+        append_optional_string(&mut source_kinds, row.source_kind.as_deref());
+        append_optional_timestamp(&mut published_at, row.published_at);
+        append_optional_timestamp(&mut source_updated_at, row.source_updated_at);
+        append_optional_f64(&mut trust_scores, row.trust_score);
+        append_optional_f64(&mut freshness_scores, row.freshness_score);
+        append_optional_f64(&mut semantic_scores, row.semantic_score);
+        append_optional_f64(&mut lexical_scores, row.lexical_score);
+        append_optional_f64(&mut rerank_scores, row.rerank_score);
+        append_optional_string(&mut license_json, row.license_json.as_deref());
+        append_optional_string(&mut metadata_json, row.metadata_json.as_deref());
+        append_optional_string(&mut dois, row.doi.as_deref());
+        append_optional_string(&mut pmids, row.pmid.as_deref());
+        append_optional_string(&mut jurisdictions, row.jurisdiction.as_deref());
+        append_optional_string(&mut evidence_kinds, row.evidence_kind.as_deref());
     }
 
     RecordBatch::try_new(
@@ -218,6 +285,22 @@ pub fn search_result_record_batch(
             Arc::new(fetched_at.finish()) as ArrayRef,
             Arc::new(content_hashes.finish()) as ArrayRef,
             Arc::new(provenance_json.finish()) as ArrayRef,
+            Arc::new(section_ids.finish()) as ArrayRef,
+            Arc::new(heading_paths.finish()) as ArrayRef,
+            Arc::new(source_kinds.finish()) as ArrayRef,
+            Arc::new(published_at.finish()) as ArrayRef,
+            Arc::new(source_updated_at.finish()) as ArrayRef,
+            Arc::new(trust_scores.finish()) as ArrayRef,
+            Arc::new(freshness_scores.finish()) as ArrayRef,
+            Arc::new(semantic_scores.finish()) as ArrayRef,
+            Arc::new(lexical_scores.finish()) as ArrayRef,
+            Arc::new(rerank_scores.finish()) as ArrayRef,
+            Arc::new(license_json.finish()) as ArrayRef,
+            Arc::new(metadata_json.finish()) as ArrayRef,
+            Arc::new(dois.finish()) as ArrayRef,
+            Arc::new(pmids.finish()) as ArrayRef,
+            Arc::new(jurisdictions.finish()) as ArrayRef,
+            Arc::new(evidence_kinds.finish()) as ArrayRef,
         ],
     )
 }

@@ -7,7 +7,3 @@
 rust_lang_project_harness::rust_project_harness_source_gate!(
     "../../../tests/support/rust_harness.rs"
 );
-
-mod local_mirror_handler;
-
-pub use local_mirror_handler::LocalMirrorFlightHandler;

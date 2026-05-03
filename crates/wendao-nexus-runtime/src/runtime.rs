@@ -7,9 +7,9 @@ use wendao_nexus_core::{
     SourceItemRef,
 };
 
+use crate::artifact::{ArtifactDescriptor, ArtifactKind, ArtifactStore, ArtifactWrite};
 use crate::hash::sha256_content_hash;
 use crate::normalize::{KnowledgeDocumentNormalizer, NormalizationContext};
-use crate::query::LocalKnowledgeStore;
 use crate::registry::{CheckpointRegistry, ContentHashRegistry, JobRegistry};
 
 /// Result of one discovery pass.
@@ -28,12 +28,20 @@ pub struct FetchOutcome {
     pub dedup_hit: bool,
 }
 
-/// Result of a fetch, normalize, and local mirror write pass.
+/// Result of a fetch and normalize pass.
 #[derive(Clone, Debug)]
 pub struct IngestOutcome {
     pub fetch: FetchOutcome,
     pub normalize_job: NexusJobRecord,
     pub document: ExternalKnowledgeDocument,
+}
+
+/// Result of a fetch, artifact mirror, and normalize pass.
+#[derive(Clone, Debug)]
+pub struct ArtifactIngestOutcome {
+    pub ingest: IngestOutcome,
+    pub raw_artifact: ArtifactDescriptor,
+    pub normalized_artifact: ArtifactDescriptor,
 }
 
 /// Result of accepting a normalized document produced outside Nexus.
@@ -145,40 +153,27 @@ where
         }
     }
 
-    pub async fn ingest_once<C, N, S>(
+    pub async fn ingest_once<C, N>(
         &self,
         connector: &C,
         item: SourceItemRef,
         normalizer: &N,
-        store: &S,
         context: NormalizationContext,
     ) -> NexusResult<IngestOutcome>
     where
         C: KnowledgeSourceConnector + ?Sized,
         N: KnowledgeDocumentNormalizer + ?Sized,
-        S: LocalKnowledgeStore + ?Sized,
     {
         let fetch = self.fetch_once(connector, item).await?;
         let normalize_job =
             NexusJobRecord::new(connector.source_id(), NexusJobKind::Normalize).running();
         self.registry.put_job(normalize_job.clone()).await?;
 
-        let normalize_result = match normalizer.normalize(fetch.document.clone(), context).await {
-            Ok(document) => store.upsert_document(document).await,
-            Err(error) => Err(error),
-        };
+        let normalize_result = normalizer.normalize(fetch.document.clone(), context).await;
 
         match normalize_result {
             Ok(document) => {
-                let mut checkpoint = self
-                    .registry
-                    .get_checkpoint(&document.source_id)
-                    .await?
-                    .unwrap_or_else(|| SourceCheckpoint::new(&document.source_id));
-                checkpoint.last_success_at = Some(Utc::now());
-                checkpoint.last_content_hash = Some(document.content_hash.clone());
-                checkpoint.last_seen_revision = document.provenance.revision_id.clone();
-                self.registry.upsert_checkpoint(checkpoint).await?;
+                self.upsert_checkpoint_for_document(&document).await?;
 
                 let normalize_job = normalize_job.finish(NexusJobStatus::Succeeded);
                 self.registry.put_job(normalize_job.clone()).await?;
@@ -197,14 +192,68 @@ where
         }
     }
 
-    pub async fn upsert_normalized_document<S>(
+    pub async fn ingest_once_with_artifact_store<C, N, A>(
+        &self,
+        connector: &C,
+        item: SourceItemRef,
+        normalizer: &N,
+        artifact_store: &A,
+        context: NormalizationContext,
+    ) -> NexusResult<ArtifactIngestOutcome>
+    where
+        C: KnowledgeSourceConnector + ?Sized,
+        N: KnowledgeDocumentNormalizer + ?Sized,
+        A: ArtifactStore + ?Sized,
+    {
+        let fetch = self.fetch_once(connector, item).await?;
+        let raw_artifact = artifact_store
+            .put_artifact(raw_artifact_write(&fetch))
+            .await?;
+
+        let normalize_job =
+            NexusJobRecord::new(connector.source_id(), NexusJobKind::Normalize).running();
+        self.registry.put_job(normalize_job.clone()).await?;
+
+        let normalize_result = match normalizer.normalize(fetch.document.clone(), context).await {
+            Ok(document) => {
+                let normalized_artifact_write = normalized_artifact_write(&document)?;
+                artifact_store
+                    .put_artifact(normalized_artifact_write)
+                    .await
+                    .map(|normalized_artifact| (document, normalized_artifact))
+            }
+            Err(error) => Err(error),
+        };
+
+        match normalize_result {
+            Ok((document, normalized_artifact)) => {
+                self.upsert_checkpoint_for_document(&document).await?;
+
+                let normalize_job = normalize_job.finish(NexusJobStatus::Succeeded);
+                self.registry.put_job(normalize_job.clone()).await?;
+
+                Ok(ArtifactIngestOutcome {
+                    ingest: IngestOutcome {
+                        fetch,
+                        normalize_job,
+                        document,
+                    },
+                    raw_artifact,
+                    normalized_artifact,
+                })
+            }
+            Err(error) => {
+                let failed_job = normalize_job.fail(error.to_string());
+                self.registry.put_job(failed_job).await?;
+                Err(error)
+            }
+        }
+    }
+
+    pub async fn accept_normalized_document(
         &self,
         document: ExternalKnowledgeDocument,
-        store: &S,
-    ) -> NexusResult<NormalizedIngestOutcome>
-    where
-        S: LocalKnowledgeStore + ?Sized,
-    {
+    ) -> NexusResult<NormalizedIngestOutcome> {
         let job = NexusJobRecord::new(document.source_id.clone(), NexusJobKind::Ingest).running();
         self.registry.put_job(job.clone()).await?;
 
@@ -218,41 +267,77 @@ where
             .registry
             .mark_content_hash(document.content_hash.clone())
             .await?;
-        let upsert_result = store.upsert_document(document).await;
+        self.upsert_checkpoint_for_document(&document).await?;
 
-        match upsert_result {
-            Ok(document) => {
-                let mut checkpoint = self
-                    .registry
-                    .get_checkpoint(&document.source_id)
-                    .await?
-                    .unwrap_or_else(|| SourceCheckpoint::new(&document.source_id));
-                checkpoint.last_success_at = Some(Utc::now());
-                checkpoint.last_content_hash = Some(document.content_hash.clone());
-                checkpoint.last_seen_revision = document.provenance.revision_id.clone();
-                self.registry.upsert_checkpoint(checkpoint).await?;
+        let mut job = if dedup_hit {
+            job.finish(NexusJobStatus::Deduped)
+        } else {
+            job.finish(NexusJobStatus::Succeeded)
+        };
+        job.dedup_hit = dedup_hit;
+        self.registry.put_job(job.clone()).await?;
 
-                let mut job = if dedup_hit {
-                    job.finish(NexusJobStatus::Deduped)
-                } else {
-                    job.finish(NexusJobStatus::Succeeded)
-                };
-                job.dedup_hit = dedup_hit;
-                self.registry.put_job(job.clone()).await?;
-
-                Ok(NormalizedIngestOutcome {
-                    job,
-                    document,
-                    dedup_hit,
-                })
-            }
-            Err(error) => {
-                let failed_job = job.fail(error.to_string());
-                self.registry.put_job(failed_job).await?;
-                Err(error)
-            }
-        }
+        Ok(NormalizedIngestOutcome {
+            job,
+            document,
+            dedup_hit,
+        })
     }
+
+    async fn upsert_checkpoint_for_document(
+        &self,
+        document: &ExternalKnowledgeDocument,
+    ) -> NexusResult<()> {
+        let mut checkpoint = self
+            .registry
+            .get_checkpoint(&document.source_id)
+            .await?
+            .unwrap_or_else(|| SourceCheckpoint::new(&document.source_id));
+        checkpoint.last_success_at = Some(Utc::now());
+        checkpoint.last_content_hash = Some(document.content_hash.clone());
+        checkpoint.last_seen_revision = document.provenance.revision_id.clone();
+        self.registry.upsert_checkpoint(checkpoint).await?;
+        Ok(())
+    }
+}
+
+fn raw_artifact_write(fetch: &FetchOutcome) -> ArtifactWrite {
+    ArtifactWrite::new(
+        fetch.document.source_id.clone(),
+        fetch.document.external_id.clone(),
+        fetch.content_hash.clone(),
+        ArtifactKind::RawSourcePayload,
+        fetch.document.media_type.clone(),
+        fetch.document.payload.clone(),
+    )
+    .with_metadata(fetch.document.metadata.clone())
+}
+
+fn normalized_artifact_write(document: &ExternalKnowledgeDocument) -> NexusResult<ArtifactWrite> {
+    let bytes = serde_json::to_vec_pretty(document)
+        .map_err(|error| NexusError::Artifact(format!("serialize normalized document: {error}")))?;
+    let metadata = [
+        (
+            "source_kind".to_string(),
+            format!("{:?}", document.provenance.source_kind),
+        ),
+        (
+            "authority_level".to_string(),
+            format!("{:?}", document.provenance.authority_level),
+        ),
+    ]
+    .into_iter()
+    .collect();
+
+    Ok(ArtifactWrite::new(
+        document.source_id.clone(),
+        document.external_id.clone(),
+        document.content_hash.clone(),
+        ArtifactKind::NormalizedDocument,
+        "application/vnd.wendao.nexus.external-knowledge-document+json",
+        bytes,
+    )
+    .with_metadata(metadata))
 }
 
 fn validate_normalized_document_for_ingest(

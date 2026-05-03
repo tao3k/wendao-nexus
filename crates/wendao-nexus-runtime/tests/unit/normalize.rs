@@ -1,7 +1,11 @@
 use std::collections::BTreeMap;
 
 use chrono::{TimeZone, Utc};
-use wendao_nexus_core::{AuthorityLevel, KnowledgeSourceKind, RawSourceDocument};
+use wendao_nexus_core::{
+    AuthorityLevel, KnowledgeSourceKind, RawSourceDocument, SOURCE_METADATA_AUTHORS_KEY,
+    SOURCE_METADATA_DOI_KEY, SOURCE_METADATA_LICENSE_KEY, SOURCE_METADATA_MESH_TERMS_KEY,
+    SOURCE_METADATA_PMID_KEY, SOURCE_METADATA_TITLE_KEY,
+};
 use wendao_nexus_runtime::{
     KnowledgeDocumentNormalizer, NormalizationContext, PlainTextNormalizer,
 };
@@ -19,18 +23,27 @@ async fn plain_text_normalizer_preserves_metadata_and_provenance() {
         source_updated_at: None,
         content_hash: Some("sha256:known".to_string()),
         metadata: BTreeMap::from([
-            ("title".to_string(), "Trial Abstract".to_string()),
             (
-                "authors".to_string(),
+                SOURCE_METADATA_TITLE_KEY.to_string(),
+                "Trial Abstract".to_string(),
+            ),
+            (
+                SOURCE_METADATA_AUTHORS_KEY.to_string(),
                 "Ada Lovelace; Grace Hopper".to_string(),
             ),
-            ("doi".to_string(), "10.1000/example".to_string()),
-            ("pmid".to_string(), "123".to_string()),
             (
-                "mesh_terms".to_string(),
+                SOURCE_METADATA_DOI_KEY.to_string(),
+                "10.1000/example".to_string(),
+            ),
+            (SOURCE_METADATA_PMID_KEY.to_string(), "123".to_string()),
+            (
+                SOURCE_METADATA_MESH_TERMS_KEY.to_string(),
                 "Cardiology, Endocrinology".to_string(),
             ),
-            ("license".to_string(), "Public Domain".to_string()),
+            (
+                SOURCE_METADATA_LICENSE_KEY.to_string(),
+                "Public Domain".to_string(),
+            ),
         ]),
     };
 

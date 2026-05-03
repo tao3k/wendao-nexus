@@ -1,0 +1,14 @@
+[source_pack]
+id = "duplicate-source-pack"
+version = "0.1.0"
+authority_level = "Curated"
+
+[[sources]]
+source_id = "duplicate-source"
+kind = "PubMed"
+fixture_path = "../corpus/medical/articles.jsonl"
+
+[[sources]]
+source_id = "duplicate-source"
+kind = "MedicalJournal"
+fixture_path = "../corpus/medical/guideline.md"

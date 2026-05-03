@@ -5,7 +5,19 @@ use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use uuid::Uuid;
-use wendao_nexus_core::{NexusError, NexusJobRecord, NexusResult, SourceCheckpoint};
+use wendao_nexus_core::{
+    NexusError, NexusJobRecord, NexusResult, NexusSourceRecord, SourceCheckpoint,
+};
+
+/// Registry facade for configured external sources.
+#[async_trait]
+pub trait SourceRegistry: Send + Sync {
+    async fn upsert_source(&self, source: NexusSourceRecord) -> NexusResult<NexusSourceRecord>;
+
+    async fn get_source(&self, source_id: &str) -> NexusResult<Option<NexusSourceRecord>>;
+
+    async fn list_sources(&self, include_disabled: bool) -> NexusResult<Vec<NexusSourceRecord>>;
+}
 
 /// Registry facade for recoverable sync jobs.
 #[async_trait]
@@ -44,6 +56,7 @@ pub struct InMemoryNexusRegistry {
 
 #[derive(Default)]
 struct RegistryState {
+    sources: BTreeMap<String, NexusSourceRecord>,
     jobs: BTreeMap<Uuid, NexusJobRecord>,
     checkpoints: BTreeMap<String, SourceCheckpoint>,
     content_hashes: BTreeSet<String>,
@@ -64,6 +77,33 @@ impl InMemoryNexusRegistry {
         self.inner
             .write()
             .map_err(|_| NexusError::Registry("in-memory registry write lock poisoned".to_string()))
+    }
+}
+
+#[async_trait]
+impl SourceRegistry for InMemoryNexusRegistry {
+    async fn upsert_source(&self, source: NexusSourceRecord) -> NexusResult<NexusSourceRecord> {
+        let mut state = self.write_state()?;
+        state
+            .sources
+            .insert(source.source_id.clone(), source.clone());
+        Ok(source)
+    }
+
+    async fn get_source(&self, source_id: &str) -> NexusResult<Option<NexusSourceRecord>> {
+        let state = self.read_state()?;
+        Ok(state.sources.get(source_id).cloned())
+    }
+
+    async fn list_sources(&self, include_disabled: bool) -> NexusResult<Vec<NexusSourceRecord>> {
+        let state = self.read_state()?;
+        let sources = state
+            .sources
+            .values()
+            .filter(|source| include_disabled || source.enabled)
+            .cloned()
+            .collect();
+        Ok(sources)
     }
 }
 

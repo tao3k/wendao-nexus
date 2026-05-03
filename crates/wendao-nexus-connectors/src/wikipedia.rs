@@ -53,11 +53,11 @@ impl KnowledgeSourceConnector for WikipediaConnector {
 
     fn capabilities(&self) -> SourceCapabilities {
         SourceCapabilities {
-            discover: true,
-            fetch: true,
-            delta: true,
-            live_query: true,
-            local_mirror: true,
+            discover: false,
+            fetch: false,
+            delta: false,
+            live_query: false,
+            local_mirror: false,
             revisions: true,
             structured_metadata: true,
             license_metadata: true,

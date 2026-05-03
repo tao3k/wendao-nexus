@@ -1,0 +1,21 @@
+[source_pack]
+id = "customer-private-knowledge-pack"
+version = "2026.04-fixture"
+domain = "customer_private"
+display_name = "Customer Private Knowledge Pack"
+authority_level = "CustomerInternal"
+license = "Customer Confidential"
+
+[[sources]]
+source_id = "customer-sop-demo"
+kind = "CustomerPrivateCorpus"
+fixture_path = "../corpus/customer/sop.jsonl"
+canonical_uri_prefix = "customer-private://acme-bio"
+authority_level = "CustomerInternal"
+
+[[sources]]
+source_id = "customer-crm-demo"
+kind = "ApiFeed"
+fixture_path = "../corpus/customer/sop.jsonl"
+authority_level = "CustomerInternal"
+enabled = false
