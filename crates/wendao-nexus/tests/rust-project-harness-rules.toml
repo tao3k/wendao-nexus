@@ -1,0 +1,4 @@
+[tests]
+allowed_directories = [
+  { name = "conformance", explanation = "pre-adapter Nexus contract suite mounted by unit_test.rs" },
+]

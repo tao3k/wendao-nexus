@@ -22,6 +22,9 @@ strict Clippy, the explicit harness policy gate, and whitespace checks.
 The facade crate also carries a deterministic phase guard that rejects live
 source clients, parser crates, storage/search/cache engines, CocoIndex, and
 public local knowledge-store ownership from the current contract-only phase.
+The facade crate's `tests/conformance/` suite is the pre-adapter contract gate
+for routes, command envelopes, Arrow schemas and batches, directory-first source
+packs, serverless fixture command handling, and artifact replay.
 
 ## Workspace Policy
 
