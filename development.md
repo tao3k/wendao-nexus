@@ -19,6 +19,9 @@ leaving mixed-case technical terms as prose.
 GitHub Actions lives in `.github/workflows/ci.yml` and mirrors this locked
 workspace validation on Linux, macOS, and Windows. Ubuntu also runs formatting,
 strict Clippy, the explicit harness policy gate, and whitespace checks.
+The facade crate also carries a deterministic phase guard that rejects live
+source clients, parser crates, storage/search/cache engines, CocoIndex, and
+public local knowledge-store ownership from the current contract-only phase.
 
 ## Workspace Policy
 
@@ -40,6 +43,8 @@ pieces that the Wendao-side server mounts.
 Keep storage backends out of the core contract crate. DuckDB, LanceDB, Valkey,
 graph indexes, and gateway routes should attach through runtime traits, Flight
 contracts, future storage crates, or downstream Wendao integration crates.
+The current phase does not add those backend crates at all; fixture evidence
+view tests are only a serverless proof for the Arrow Flight contract.
 
 Each library crate carries `rust-lang-project-harness` as a dev-dependency and
 mounts `rust_project_harness_source_gate!()` from `src/lib.rs`. The shared

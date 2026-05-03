@@ -31,6 +31,30 @@ const FORBIDDEN_CONNECTOR_SOURCE_TOKENS: &[&str] = &[
     "hyper_util::client",
     "tokio_tungstenite",
 ];
+const FORBIDDEN_STORAGE_SEARCH_DEPENDENCIES: &[&str] = &[
+    "duckdb",
+    "datafusion",
+    "tantivy",
+    "lance",
+    "lance-arrow",
+    "lancedb",
+    "redis",
+    "valkey",
+    "fred",
+    "deadpool-redis",
+    "bb8-redis",
+    "cocoindex",
+];
+const FORBIDDEN_RUNTIME_OWNERSHIP_TOKENS: &[&str] = &[
+    "pub struct LocalKnowledgeStore",
+    "pub trait LocalKnowledgeStore",
+    "pub type LocalKnowledgeStore",
+    "pub struct InMemoryKnowledgeStore",
+    "pub trait InMemoryKnowledgeStore",
+    "pub type InMemoryKnowledgeStore",
+    "CocoIndex",
+    "cocoindex",
+];
 
 #[test]
 fn current_phase_has_no_live_source_client_or_scheduler_direct_dependencies() {
@@ -63,6 +87,21 @@ fn current_phase_has_no_document_parser_direct_dependencies() {
 }
 
 #[test]
+fn current_phase_has_no_storage_search_cache_or_cocoindex_direct_dependencies() {
+    let root = workspace_root();
+    for manifest in workspace_manifests(&root) {
+        let content = fs::read_to_string(&manifest).unwrap();
+        let package = package_name(&content).unwrap_or_else(|| manifest.display().to_string());
+        for dependency in FORBIDDEN_STORAGE_SEARCH_DEPENDENCIES {
+            assert!(
+                !manifest_declares_dependency(&content, dependency),
+                "{package} must not declare `{dependency}` during the contract-only fixture phase"
+            );
+        }
+    }
+}
+
+#[test]
 fn current_phase_connector_sources_do_not_import_live_clients() {
     let root = workspace_root();
     for source_file in rust_sources(&root.join("crates/wendao-nexus-connectors/src")) {
@@ -71,6 +110,21 @@ fn current_phase_connector_sources_do_not_import_live_clients() {
             assert!(
                 !content.contains(token),
                 "{} must not use `{token}` during the deterministic fixture phase",
+                source_file.display()
+            );
+        }
+    }
+}
+
+#[test]
+fn current_phase_crate_sources_do_not_own_local_knowledge_store_or_cocoindex() {
+    let root = workspace_root();
+    for source_file in crate_src_rust_sources(&root) {
+        let content = fs::read_to_string(&source_file).unwrap();
+        for token in FORBIDDEN_RUNTIME_OWNERSHIP_TOKENS {
+            assert!(
+                !content.contains(token),
+                "{} must not introduce `{token}`; Nexus stays a contract and fixture harness layer here",
                 source_file.display()
             );
         }
@@ -96,6 +150,18 @@ fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     }
     manifests.sort();
     manifests
+}
+
+fn crate_src_rust_sources(root: &Path) -> Vec<PathBuf> {
+    let mut sources = Vec::new();
+    for entry in fs::read_dir(root.join("crates")).unwrap() {
+        let src_dir = entry.unwrap().path().join("src");
+        if src_dir.exists() {
+            sources.extend(rust_sources(&src_dir));
+        }
+    }
+    sources.sort();
+    sources
 }
 
 fn rust_sources(dir: &Path) -> Vec<PathBuf> {
