@@ -20,6 +20,13 @@ pub const EXTERNAL_KNOWLEDGE_STATUS_ROUTE: &str = "/knowledge/external/status";
 /// Compare a claim against governed external evidence.
 pub const EXTERNAL_KNOWLEDGE_COMPARE_ROUTE: &str = "/knowledge/external/compare";
 
+/// Judge evidence batches with downstream analytic scoring.
+///
+/// This is a shared contract route for future Julia-side evidence services. It
+/// is intentionally separate from [`NexusFlightRoute`] because Nexus does not
+/// own or serve the analytic judge in this repository.
+pub const KNOWLEDGE_EVIDENCE_JUDGE_ROUTE: &str = "/knowledge/evidence/judge";
+
 /// Supported `Wendao Nexus` Flight routes.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum NexusFlightRoute {
@@ -54,6 +61,49 @@ impl NexusFlightRoute {
     pub fn ticket(self) -> Ticket {
         Ticket {
             ticket: self.as_str().as_bytes().to_vec().into(),
+        }
+    }
+}
+
+/// Supported downstream evidence-analysis Flight routes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum EvidenceFlightRoute {
+    Judge,
+}
+
+impl EvidenceFlightRoute {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Judge => KNOWLEDGE_EVIDENCE_JUDGE_ROUTE,
+        }
+    }
+
+    pub fn all() -> [Self; 1] {
+        [Self::Judge]
+    }
+
+    pub fn ticket(self) -> Ticket {
+        Ticket {
+            ticket: self.as_str().as_bytes().to_vec().into(),
+        }
+    }
+}
+
+impl fmt::Display for EvidenceFlightRoute {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl TryFrom<&str> for EvidenceFlightRoute {
+    type Error = String;
+
+    fn try_from(route: &str) -> Result<Self, Self::Error> {
+        match route {
+            KNOWLEDGE_EVIDENCE_JUDGE_ROUTE => Ok(Self::Judge),
+            _ => Err(format!(
+                "unsupported Wendao Evidence Flight route `{route}`"
+            )),
         }
     }
 }

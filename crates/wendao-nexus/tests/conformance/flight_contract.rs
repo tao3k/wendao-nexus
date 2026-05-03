@@ -6,13 +6,15 @@ use wendao_nexus_core::{
 use wendao_nexus_flight::{
     EXTERNAL_KNOWLEDGE_COMPARE_ROUTE, EXTERNAL_KNOWLEDGE_OPEN_ROUTE,
     EXTERNAL_KNOWLEDGE_SEARCH_ROUTE, EXTERNAL_KNOWLEDGE_STATUS_ROUTE,
-    EXTERNAL_KNOWLEDGE_SYNC_ROUTE, FlightCompareResultRow, FlightOpenDocumentRow,
-    FlightSearchResultRow, FlightStatusRow, FlightSyncResultRow,
+    EXTERNAL_KNOWLEDGE_SYNC_ROUTE, EvidenceFlightRoute, FlightCompareResultRow,
+    FlightEvidenceJudgeInputRow, FlightEvidenceJudgeResultRow, FlightOpenDocumentRow,
+    FlightSearchResultRow, FlightStatusRow, FlightSyncResultRow, KNOWLEDGE_EVIDENCE_JUDGE_ROUTE,
     NEXUS_FLIGHT_COMMAND_SCHEMA_VERSION, NexusFlightCommand, NexusFlightCommandError,
     NexusFlightRoute, NexusFlightStatusRequest, compare_result_record_batch, compare_result_schema,
-    open_document_record_batch, open_document_schema, search_result_record_batch,
-    search_result_schema, status_record_batch, status_schema, sync_result_record_batch,
-    sync_result_schema,
+    evidence_judge_input_record_batch, evidence_judge_input_schema,
+    evidence_judge_result_record_batch, evidence_judge_result_schema, open_document_record_batch,
+    open_document_schema, search_result_record_batch, search_result_schema, status_record_batch,
+    status_schema, sync_result_record_batch, sync_result_schema,
 };
 
 use super::support::compact_batch_snapshot;
@@ -90,6 +92,14 @@ fn route_constants_and_command_envelope_are_conformant() {
         ]
     );
     assert_eq!(NEXUS_FLIGHT_COMMAND_SCHEMA_VERSION, 1);
+    assert_eq!(
+        EvidenceFlightRoute::all()
+            .into_iter()
+            .map(EvidenceFlightRoute::as_str)
+            .collect::<Vec<_>>(),
+        vec![KNOWLEDGE_EVIDENCE_JUDGE_ROUTE]
+    );
+    assert!(NexusFlightRoute::try_from(KNOWLEDGE_EVIDENCE_JUDGE_ROUTE).is_err());
 
     let status = NexusFlightCommand::Status(NexusFlightStatusRequest::all_sources());
     assert_eq!(
@@ -248,6 +258,44 @@ fn arrow_route_schemas_are_conformant() {
                 "provenance_json|Utf8|nullable=true",
             ],
         ),
+        (
+            KNOWLEDGE_EVIDENCE_JUDGE_ROUTE,
+            evidence_judge_input_schema(),
+            vec![
+                "source_id|Utf8|nullable=false",
+                "external_id|Utf8|nullable=false",
+                "canonical_uri|Utf8|nullable=false",
+                "authority_level|Utf8|nullable=false",
+                "published_at|Timestamp(Nanosecond, Some(\"UTC\"))|nullable=true",
+                "fetched_at|Timestamp(Nanosecond, Some(\"UTC\"))|nullable=true",
+                "doi|Utf8|nullable=true",
+                "pmid|Utf8|nullable=true",
+                "jurisdiction|Utf8|nullable=true",
+                "evidence_kind|Utf8|nullable=true",
+                "snippet|Utf8|nullable=true",
+                "provenance_json|Utf8|nullable=true",
+                "metadata_json|Utf8|nullable=true",
+                "trust_score|Float64|nullable=true",
+                "freshness_score|Float64|nullable=true",
+            ],
+        ),
+        (
+            KNOWLEDGE_EVIDENCE_JUDGE_ROUTE,
+            evidence_judge_result_schema(),
+            vec![
+                "source_id|Utf8|nullable=false",
+                "external_id|Utf8|nullable=false",
+                "rust_trust_score|Float64|nullable=true",
+                "julia_evidence_score|Float64|nullable=true",
+                "corroboration_score|Float64|nullable=true",
+                "conflict_score|Float64|nullable=true",
+                "pollution_risk_score|Float64|nullable=true",
+                "freshness_adjusted_score|Float64|nullable=true",
+                "final_evidence_score|Float64|nullable=true",
+                "judgement_label|Utf8|nullable=false",
+                "explanation_json|Utf8|nullable=true",
+            ],
+        ),
     ];
 
     for (route, schema, expected) in route_schemas {
@@ -363,13 +411,65 @@ evidence_kind=law_clause"#
         provenance_json: Some(r#"{"records":[{"source_id":"legal-compliance-demo"}]}"#.to_string()),
     }])
     .unwrap();
+    let judge_input = evidence_judge_input_record_batch(&[FlightEvidenceJudgeInputRow {
+        source_id: "legal-compliance-demo".to_string(),
+        external_id: "legal/privacy/data-retention-clause".to_string(),
+        canonical_uri: "https://law.example.test/privacy-code/article-12".to_string(),
+        authority_level: "Official".to_string(),
+        published_at: Some(timestamp),
+        fetched_at: Some(timestamp),
+        doi: None,
+        pmid: None,
+        jurisdiction: Some("US-EXAMPLE".to_string()),
+        evidence_kind: Some("law_clause".to_string()),
+        snippet: Some("retain audit evidence".to_string()),
+        provenance_json: Some(r#"{"primary":{"source_id":"legal-compliance-demo"}}"#.to_string()),
+        metadata_json: Some(r#"{"jurisdiction":"US-EXAMPLE"}"#.to_string()),
+        trust_score: Some(1.0),
+        freshness_score: Some(0.9),
+    }])
+    .unwrap();
+    let judged = evidence_judge_result_record_batch(&[FlightEvidenceJudgeResultRow {
+        source_id: "legal-compliance-demo".to_string(),
+        external_id: "legal/privacy/data-retention-clause".to_string(),
+        rust_trust_score: Some(0.94),
+        julia_evidence_score: Some(0.91),
+        corroboration_score: Some(0.5),
+        conflict_score: Some(0.0),
+        pollution_risk_score: Some(0.05),
+        freshness_adjusted_score: Some(0.88),
+        final_evidence_score: Some(0.9),
+        judgement_label: "trusted".to_string(),
+        explanation_json: Some(r#"{"independent_source_count":1}"#.to_string()),
+    }])
+    .unwrap();
 
     assert_batch_route!(open, EXTERNAL_KNOWLEDGE_OPEN_ROUTE);
     assert_batch_route!(sync, EXTERNAL_KNOWLEDGE_SYNC_ROUTE);
     assert_batch_route!(status, EXTERNAL_KNOWLEDGE_STATUS_ROUTE);
     assert_batch_route!(compare, EXTERNAL_KNOWLEDGE_COMPARE_ROUTE);
+    assert_batch_route!(judge_input, KNOWLEDGE_EVIDENCE_JUDGE_ROUTE);
+    assert_batch_route!(judged, KNOWLEDGE_EVIDENCE_JUDGE_ROUTE);
     assert!(compact_batch_snapshot(&open).contains("metadata_json={\"article\":\"Article 12\"}"));
     assert!(compact_batch_snapshot(&sync).contains("dedup_hit=false"));
     assert!(compact_batch_snapshot(&status).contains("enabled=true"));
     assert!(compact_batch_snapshot(&compare).contains("verdict=evidence_available"));
+    assert!(
+        compact_batch_snapshot(&judge_input)
+            .contains("provenance_json={\"primary\":{\"source_id\":\"legal-compliance-demo\"}}")
+    );
+    assert_eq!(
+        compact_batch_snapshot(&judged),
+        r#"source_id=legal-compliance-demo
+external_id=legal/privacy/data-retention-clause
+rust_trust_score=0.94
+julia_evidence_score=0.91
+corroboration_score=0.5
+conflict_score=0
+pollution_risk_score=0.05
+freshness_adjusted_score=0.88
+final_evidence_score=0.9
+judgement_label=trusted
+explanation_json={"independent_source_count":1}"#
+    );
 }

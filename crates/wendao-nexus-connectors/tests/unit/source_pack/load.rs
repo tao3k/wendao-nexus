@@ -84,6 +84,7 @@ fn source_pack_resolves_explicit_and_default_authority_profiles() {
         pubmed.license_policy.as_deref(),
         Some("PubMed Fixture License")
     );
+    assert!(pubmed.requires_license);
     assert!(pubmed.expected_identifiers.contains(&IdentifierKind::Pmid));
     assert!(pubmed.expected_identifiers.contains(&IdentifierKind::Doi));
 
@@ -92,6 +93,7 @@ fn source_pack_resolves_explicit_and_default_authority_profiles() {
     assert_eq!(guideline.domain, SourceDomain::Medical);
     assert_eq!(guideline.authority_level, AuthorityLevel::Curated);
     assert_eq!(guideline.license_policy.as_deref(), Some("Fixture License"));
+    assert!(guideline.requires_license);
     assert!(
         guideline
             .expected_identifiers

@@ -10,7 +10,9 @@ use wendao_nexus_core::{
     SourceCursor, SourceItemRef,
 };
 
-use crate::external_database::{ExternalDatabaseConfig, ExternalDatabaseConnector};
+use crate::external_database::{
+    ExternalDatabaseAuthMode, ExternalDatabaseConfig, ExternalDatabaseConnector,
+};
 
 /// Feature-gated probe config for bounded live validation.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -57,6 +59,12 @@ impl ExternalDatabaseProbeConnector {
         if config.user_agent.trim().is_empty() {
             return Err(NexusError::InvalidSource(format!(
                 "external database probe `{}` user_agent must not be empty",
+                config.database.source_id
+            )));
+        }
+        if !matches!(config.database.auth_mode, ExternalDatabaseAuthMode::None) {
+            return Err(NexusError::InvalidSource(format!(
+                "external database probe `{}` only supports unauthenticated public GET probes in this phase",
                 config.database.source_id
             )));
         }

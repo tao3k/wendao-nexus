@@ -2,8 +2,9 @@ use arrow_schema::SchemaRef;
 use wendao_nexus_flight::{
     EXTERNAL_KNOWLEDGE_COMPARE_ROUTE, EXTERNAL_KNOWLEDGE_OPEN_ROUTE,
     EXTERNAL_KNOWLEDGE_SEARCH_ROUTE, EXTERNAL_KNOWLEDGE_STATUS_ROUTE,
-    EXTERNAL_KNOWLEDGE_SYNC_ROUTE, NEXUS_FLIGHT_ROUTE_METADATA_KEY, NEXUS_FLIGHT_SCHEMA_VERSION,
-    NEXUS_FLIGHT_SCHEMA_VERSION_METADATA_KEY, compare_result_schema, open_document_schema,
+    EXTERNAL_KNOWLEDGE_SYNC_ROUTE, KNOWLEDGE_EVIDENCE_JUDGE_ROUTE, NEXUS_FLIGHT_ROUTE_METADATA_KEY,
+    NEXUS_FLIGHT_SCHEMA_VERSION, NEXUS_FLIGHT_SCHEMA_VERSION_METADATA_KEY, compare_result_schema,
+    evidence_judge_input_schema, evidence_judge_result_schema, open_document_schema,
     search_result_schema, status_schema, sync_result_schema,
 };
 
@@ -133,6 +134,44 @@ field:conflict_detected|Boolean|nullable=false
 field:insufficient_authority|Boolean|nullable=false
 field:stale_evidence|Boolean|nullable=false
 field:provenance_json|Utf8|nullable=true"#,
+        ),
+        (
+            KNOWLEDGE_EVIDENCE_JUDGE_ROUTE,
+            evidence_judge_input_schema(),
+            r#"metadata:wendao_nexus.route=/knowledge/evidence/judge
+metadata:wendao_nexus.schema_version=1
+field:source_id|Utf8|nullable=false
+field:external_id|Utf8|nullable=false
+field:canonical_uri|Utf8|nullable=false
+field:authority_level|Utf8|nullable=false
+field:published_at|Timestamp(Nanosecond, Some("UTC"))|nullable=true
+field:fetched_at|Timestamp(Nanosecond, Some("UTC"))|nullable=true
+field:doi|Utf8|nullable=true
+field:pmid|Utf8|nullable=true
+field:jurisdiction|Utf8|nullable=true
+field:evidence_kind|Utf8|nullable=true
+field:snippet|Utf8|nullable=true
+field:provenance_json|Utf8|nullable=true
+field:metadata_json|Utf8|nullable=true
+field:trust_score|Float64|nullable=true
+field:freshness_score|Float64|nullable=true"#,
+        ),
+        (
+            KNOWLEDGE_EVIDENCE_JUDGE_ROUTE,
+            evidence_judge_result_schema(),
+            r#"metadata:wendao_nexus.route=/knowledge/evidence/judge
+metadata:wendao_nexus.schema_version=1
+field:source_id|Utf8|nullable=false
+field:external_id|Utf8|nullable=false
+field:rust_trust_score|Float64|nullable=true
+field:julia_evidence_score|Float64|nullable=true
+field:corroboration_score|Float64|nullable=true
+field:conflict_score|Float64|nullable=true
+field:pollution_risk_score|Float64|nullable=true
+field:freshness_adjusted_score|Float64|nullable=true
+field:final_evidence_score|Float64|nullable=true
+field:judgement_label|Utf8|nullable=false
+field:explanation_json|Utf8|nullable=true"#,
         ),
     ];
 

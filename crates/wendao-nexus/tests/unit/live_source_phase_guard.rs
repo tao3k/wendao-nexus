@@ -41,6 +41,8 @@ const FORBIDDEN_RUNTIME_OWNERSHIP_TOKENS: &[&str] = &[
     "pub type InMemoryKnowledgeStore",
     "CocoIndex",
     "cocoindex",
+    "Obscura",
+    "obscura",
 ];
 
 #[test]
@@ -92,6 +94,7 @@ fn current_phase_has_no_storage_search_cache_or_cocoindex_direct_dependencies() 
         "deadpool-redis",
         "bb8-redis",
         "cocoindex",
+        "obscura",
     ];
     let root = workspace_root();
     for manifest in workspace_manifests(&root) {

@@ -14,8 +14,8 @@ use wendao_nexus_core::{
 };
 
 use crate::schema::{
-    compare_result_schema, open_document_schema, search_result_schema, status_schema,
-    sync_result_schema,
+    compare_result_schema, evidence_judge_input_schema, evidence_judge_result_schema,
+    open_document_schema, search_result_schema, status_schema, sync_result_schema,
 };
 
 /// Search result row for `/knowledge/external/search`.
@@ -89,6 +89,55 @@ impl TryFrom<&EvidenceRecord> for FlightSearchResultRow {
             evidence_kind: Some(record.evidence_kind.wire_label()),
         })
     }
+}
+
+/// Normalized evidence row for `/knowledge/evidence/judge` inputs.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FlightEvidenceJudgeInputRow {
+    pub source_id: String,
+    pub external_id: String,
+    pub canonical_uri: String,
+    pub authority_level: String,
+    pub published_at: Option<DateTime<Utc>>,
+    pub fetched_at: Option<DateTime<Utc>>,
+    pub doi: Option<String>,
+    pub pmid: Option<String>,
+    pub jurisdiction: Option<String>,
+    pub evidence_kind: Option<String>,
+    pub snippet: Option<String>,
+    pub provenance_json: Option<String>,
+    pub metadata_json: Option<String>,
+    pub trust_score: Option<f64>,
+    pub freshness_score: Option<f64>,
+}
+
+impl From<&FlightSearchResultRow> for FlightEvidenceJudgeInputRow {
+    fn from(row: &FlightSearchResultRow) -> Self {
+        Self {
+            source_id: row.source_id.clone(),
+            external_id: row.external_id.clone(),
+            canonical_uri: row.canonical_uri.clone(),
+            authority_level: row.authority_level.clone(),
+            published_at: row.published_at,
+            fetched_at: row.fetched_at,
+            doi: row.doi.clone(),
+            pmid: row.pmid.clone(),
+            jurisdiction: row.jurisdiction.clone(),
+            evidence_kind: row.evidence_kind.clone(),
+            snippet: row.snippet.clone(),
+            provenance_json: row.provenance_json.clone(),
+            metadata_json: row.metadata_json.clone(),
+            trust_score: row.trust_score,
+            freshness_score: row.freshness_score,
+        }
+    }
+}
+
+/// Convert search result rows into normalized evidence judge input rows.
+pub fn evidence_judge_input_rows_from_search_rows(
+    rows: &[FlightSearchResultRow],
+) -> Vec<FlightEvidenceJudgeInputRow> {
+    rows.iter().map(From::from).collect()
 }
 
 /// Open-document row for `/knowledge/external/open`.
@@ -212,6 +261,22 @@ pub struct FlightCompareResultRow {
     pub provenance_json: Option<String>,
 }
 
+/// Judged evidence row for `/knowledge/evidence/judge`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FlightEvidenceJudgeResultRow {
+    pub source_id: String,
+    pub external_id: String,
+    pub rust_trust_score: Option<f64>,
+    pub julia_evidence_score: Option<f64>,
+    pub corroboration_score: Option<f64>,
+    pub conflict_score: Option<f64>,
+    pub pollution_risk_score: Option<f64>,
+    pub freshness_adjusted_score: Option<f64>,
+    pub final_evidence_score: Option<f64>,
+    pub judgement_label: String,
+    pub explanation_json: Option<String>,
+}
+
 /// Build a search result `RecordBatch`.
 pub fn search_result_record_batch(
     rows: &[FlightSearchResultRow],
@@ -301,6 +366,66 @@ pub fn search_result_record_batch(
             Arc::new(pmids.finish()) as ArrayRef,
             Arc::new(jurisdictions.finish()) as ArrayRef,
             Arc::new(evidence_kinds.finish()) as ArrayRef,
+        ],
+    )
+}
+
+/// Build an evidence judge input `RecordBatch`.
+pub fn evidence_judge_input_record_batch(
+    rows: &[FlightEvidenceJudgeInputRow],
+) -> Result<RecordBatch, ArrowError> {
+    let mut source_ids = StringBuilder::new();
+    let mut external_ids = StringBuilder::new();
+    let mut canonical_uris = StringBuilder::new();
+    let mut authority_levels = StringBuilder::new();
+    let mut published_at = utc_timestamp_builder();
+    let mut fetched_at = utc_timestamp_builder();
+    let mut dois = StringBuilder::new();
+    let mut pmids = StringBuilder::new();
+    let mut jurisdictions = StringBuilder::new();
+    let mut evidence_kinds = StringBuilder::new();
+    let mut snippets = StringBuilder::new();
+    let mut provenance_json = StringBuilder::new();
+    let mut metadata_json = StringBuilder::new();
+    let mut trust_scores = Float64Builder::new();
+    let mut freshness_scores = Float64Builder::new();
+
+    for row in rows {
+        source_ids.append_value(&row.source_id);
+        external_ids.append_value(&row.external_id);
+        canonical_uris.append_value(&row.canonical_uri);
+        authority_levels.append_value(&row.authority_level);
+        append_optional_timestamp(&mut published_at, row.published_at);
+        append_optional_timestamp(&mut fetched_at, row.fetched_at);
+        append_optional_string(&mut dois, row.doi.as_deref());
+        append_optional_string(&mut pmids, row.pmid.as_deref());
+        append_optional_string(&mut jurisdictions, row.jurisdiction.as_deref());
+        append_optional_string(&mut evidence_kinds, row.evidence_kind.as_deref());
+        append_optional_string(&mut snippets, row.snippet.as_deref());
+        append_optional_string(&mut provenance_json, row.provenance_json.as_deref());
+        append_optional_string(&mut metadata_json, row.metadata_json.as_deref());
+        append_optional_f64(&mut trust_scores, row.trust_score);
+        append_optional_f64(&mut freshness_scores, row.freshness_score);
+    }
+
+    RecordBatch::try_new(
+        evidence_judge_input_schema(),
+        vec![
+            Arc::new(source_ids.finish()) as ArrayRef,
+            Arc::new(external_ids.finish()) as ArrayRef,
+            Arc::new(canonical_uris.finish()) as ArrayRef,
+            Arc::new(authority_levels.finish()) as ArrayRef,
+            Arc::new(published_at.finish()) as ArrayRef,
+            Arc::new(fetched_at.finish()) as ArrayRef,
+            Arc::new(dois.finish()) as ArrayRef,
+            Arc::new(pmids.finish()) as ArrayRef,
+            Arc::new(jurisdictions.finish()) as ArrayRef,
+            Arc::new(evidence_kinds.finish()) as ArrayRef,
+            Arc::new(snippets.finish()) as ArrayRef,
+            Arc::new(provenance_json.finish()) as ArrayRef,
+            Arc::new(metadata_json.finish()) as ArrayRef,
+            Arc::new(trust_scores.finish()) as ArrayRef,
+            Arc::new(freshness_scores.finish()) as ArrayRef,
         ],
     )
 }
@@ -441,6 +566,54 @@ pub fn compare_result_record_batch(
             Arc::new(insufficient_authority.finish()) as ArrayRef,
             Arc::new(stale_evidence.finish()) as ArrayRef,
             Arc::new(provenance_json.finish()) as ArrayRef,
+        ],
+    )
+}
+
+/// Build a judged evidence `RecordBatch`.
+pub fn evidence_judge_result_record_batch(
+    rows: &[FlightEvidenceJudgeResultRow],
+) -> Result<RecordBatch, ArrowError> {
+    let mut source_ids = StringBuilder::new();
+    let mut external_ids = StringBuilder::new();
+    let mut rust_trust_scores = Float64Builder::new();
+    let mut evidence_scores = Float64Builder::new();
+    let mut corroboration_scores = Float64Builder::new();
+    let mut conflict_scores = Float64Builder::new();
+    let mut pollution_risk_scores = Float64Builder::new();
+    let mut freshness_adjusted_scores = Float64Builder::new();
+    let mut final_evidence_scores = Float64Builder::new();
+    let mut judgement_labels = StringBuilder::new();
+    let mut explanation_json = StringBuilder::new();
+
+    for row in rows {
+        source_ids.append_value(&row.source_id);
+        external_ids.append_value(&row.external_id);
+        append_optional_f64(&mut rust_trust_scores, row.rust_trust_score);
+        append_optional_f64(&mut evidence_scores, row.julia_evidence_score);
+        append_optional_f64(&mut corroboration_scores, row.corroboration_score);
+        append_optional_f64(&mut conflict_scores, row.conflict_score);
+        append_optional_f64(&mut pollution_risk_scores, row.pollution_risk_score);
+        append_optional_f64(&mut freshness_adjusted_scores, row.freshness_adjusted_score);
+        append_optional_f64(&mut final_evidence_scores, row.final_evidence_score);
+        judgement_labels.append_value(&row.judgement_label);
+        append_optional_string(&mut explanation_json, row.explanation_json.as_deref());
+    }
+
+    RecordBatch::try_new(
+        evidence_judge_result_schema(),
+        vec![
+            Arc::new(source_ids.finish()) as ArrayRef,
+            Arc::new(external_ids.finish()) as ArrayRef,
+            Arc::new(rust_trust_scores.finish()) as ArrayRef,
+            Arc::new(evidence_scores.finish()) as ArrayRef,
+            Arc::new(corroboration_scores.finish()) as ArrayRef,
+            Arc::new(conflict_scores.finish()) as ArrayRef,
+            Arc::new(pollution_risk_scores.finish()) as ArrayRef,
+            Arc::new(freshness_adjusted_scores.finish()) as ArrayRef,
+            Arc::new(final_evidence_scores.finish()) as ArrayRef,
+            Arc::new(judgement_labels.finish()) as ArrayRef,
+            Arc::new(explanation_json.finish()) as ArrayRef,
         ],
     )
 }

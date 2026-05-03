@@ -130,7 +130,20 @@ fn source_pack_export_validator_accepts_directory_first_pack() {
     assert_eq!(report.domain, SourceDomain::CustomerPrivate);
     assert_eq!(report.source_count, 2);
     assert_eq!(report.enabled_source_count, 1);
+    assert_eq!(report.authority_profiles.len(), 2);
     assert_eq!(report.fixture_paths.len(), 2);
+    assert!(
+        report
+            .authority_profiles
+            .iter()
+            .all(|profile| profile.requires_canonical_uri)
+    );
+    assert!(
+        report
+            .authority_profiles
+            .iter()
+            .all(|profile| profile.requires_license)
+    );
     assert!(
         report
             .fixture_paths

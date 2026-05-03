@@ -8,7 +8,7 @@ use arrow_schema::{DataType, Field, Schema, SchemaRef, TimeUnit};
 use crate::routes::{
     EXTERNAL_KNOWLEDGE_COMPARE_ROUTE, EXTERNAL_KNOWLEDGE_OPEN_ROUTE,
     EXTERNAL_KNOWLEDGE_SEARCH_ROUTE, EXTERNAL_KNOWLEDGE_STATUS_ROUTE,
-    EXTERNAL_KNOWLEDGE_SYNC_ROUTE,
+    EXTERNAL_KNOWLEDGE_SYNC_ROUTE, KNOWLEDGE_EVIDENCE_JUDGE_ROUTE,
 };
 
 /// Current stable schema version for Nexus Flight batches.
@@ -157,5 +157,53 @@ pub fn compare_result_schema() -> SchemaRef {
             provenance_json_field(),
         ],
         schema_metadata(EXTERNAL_KNOWLEDGE_COMPARE_ROUTE),
+    ))
+}
+
+/// Input schema for `/knowledge/evidence/judge`.
+///
+/// This schema is a normalized evidence row contract for downstream analytic
+/// services. It mirrors the columns that Nexus search/compare evidence batches
+/// can expose without making Nexus own the Julia-side judge runtime.
+pub fn evidence_judge_input_schema() -> SchemaRef {
+    Arc::new(Schema::new_with_metadata(
+        vec![
+            Field::new("source_id", DataType::Utf8, false),
+            Field::new("external_id", DataType::Utf8, false),
+            Field::new("canonical_uri", DataType::Utf8, false),
+            Field::new("authority_level", DataType::Utf8, false),
+            utc_timestamp_field("published_at"),
+            fetched_at_field(),
+            nullable_utf8_field("doi"),
+            nullable_utf8_field("pmid"),
+            nullable_utf8_field("jurisdiction"),
+            nullable_utf8_field("evidence_kind"),
+            nullable_utf8_field("snippet"),
+            provenance_json_field(),
+            nullable_utf8_field("metadata_json"),
+            nullable_score_field("trust_score"),
+            nullable_score_field("freshness_score"),
+        ],
+        schema_metadata(KNOWLEDGE_EVIDENCE_JUDGE_ROUTE),
+    ))
+}
+
+/// Output schema for `/knowledge/evidence/judge`.
+pub fn evidence_judge_result_schema() -> SchemaRef {
+    Arc::new(Schema::new_with_metadata(
+        vec![
+            Field::new("source_id", DataType::Utf8, false),
+            Field::new("external_id", DataType::Utf8, false),
+            nullable_score_field("rust_trust_score"),
+            nullable_score_field("julia_evidence_score"),
+            nullable_score_field("corroboration_score"),
+            nullable_score_field("conflict_score"),
+            nullable_score_field("pollution_risk_score"),
+            nullable_score_field("freshness_adjusted_score"),
+            nullable_score_field("final_evidence_score"),
+            Field::new("judgement_label", DataType::Utf8, false),
+            nullable_utf8_field("explanation_json"),
+        ],
+        schema_metadata(KNOWLEDGE_EVIDENCE_JUDGE_ROUTE),
     ))
 }

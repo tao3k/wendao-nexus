@@ -26,3 +26,4 @@ license_policy = "CC BY-SA 4.0"
 max_staleness_days = 365
 requires_canonical_uri = true
 requires_revision_or_version = true
+requires_license = true

@@ -1,0 +1,28 @@
+[source_pack]
+id = "real-legal-public-snapshot"
+version = "2026.05-recorded"
+schema_version = 1
+domain = "legal"
+display_name = "Recorded Public Legal Snapshot"
+producer = "wendao-nexus-real-source-probe"
+authority_level = "Official"
+license = "U.S. Government public domain"
+
+[[sources]]
+source_id = "real-ecfr-snapshot"
+kind = "LegalCorpus"
+fixture_path = "documents.jsonl"
+display_name = "Recorded eCFR Snapshot"
+license = "U.S. Government public domain"
+authority_level = "Official"
+
+[[source_profiles]]
+source_id = "real-ecfr-snapshot"
+domain = "legal"
+authority_level = "Official"
+expected_identifiers = ["jurisdiction", "statute", "article"]
+expected_evidence_kinds = ["law_clause"]
+license_policy = "U.S. Government public domain"
+requires_canonical_uri = true
+requires_revision_or_version = true
+requires_license = true

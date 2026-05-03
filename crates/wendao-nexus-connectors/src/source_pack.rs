@@ -135,6 +135,7 @@ pub struct SourcePackExportReport {
     pub domain: SourceDomain,
     pub source_count: usize,
     pub enabled_source_count: usize,
+    pub authority_profiles: Vec<SourceAuthorityProfile>,
     pub fixture_paths: Vec<SourcePackExportFixture>,
 }
 
@@ -299,6 +300,7 @@ pub fn validate_source_pack_export(path: impl AsRef<Path>) -> NexusResult<Source
     }
 
     let pack = SourcePack::from_path(&manifest_path)?;
+    let authority_profiles = pack.source_authority_profiles();
     Ok(SourcePackExportReport {
         manifest_path,
         pack_id: manifest.source_pack.id,
@@ -306,6 +308,7 @@ pub fn validate_source_pack_export(path: impl AsRef<Path>) -> NexusResult<Source
         domain: manifest.source_pack.domain,
         source_count: manifest.sources.len(),
         enabled_source_count: pack.connectors().len(),
+        authority_profiles,
         fixture_paths,
     })
 }

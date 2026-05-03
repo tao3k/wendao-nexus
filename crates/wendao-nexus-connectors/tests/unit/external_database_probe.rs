@@ -1,5 +1,6 @@
 use wendao_nexus_connectors::{
-    ExternalDatabaseConfig, ExternalDatabaseProbeConfig, ExternalDatabaseProbeConnector,
+    ExternalDatabaseAuthMode, ExternalDatabaseConfig, ExternalDatabaseProbeConfig,
+    ExternalDatabaseProbeConnector,
 };
 use wendao_nexus_core::{KnowledgeSourceConnector, KnowledgeSourceKind, SourceItemRef};
 
@@ -73,6 +74,19 @@ fn external_database_probe_rejects_invalid_probe_config() {
             .unwrap_err()
             .to_string()
             .contains("endpoint_uri is invalid")
+    );
+
+    let mut authenticated = ExternalDatabaseProbeConfig::new(ExternalDatabaseConfig::new(
+        "probe-json",
+        KnowledgeSourceKind::ApiFeed,
+        "https://example.com/probe.json",
+    ));
+    authenticated.database.auth_mode = ExternalDatabaseAuthMode::BearerToken;
+    assert!(
+        ExternalDatabaseProbeConnector::try_new(authenticated)
+            .unwrap_err()
+            .to_string()
+            .contains("only supports unauthenticated public GET probes")
     );
 }
 

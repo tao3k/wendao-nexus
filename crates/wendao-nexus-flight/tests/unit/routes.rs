@@ -1,8 +1,9 @@
 use wendao_nexus_flight::{
     EXTERNAL_KNOWLEDGE_COMPARE_ROUTE, EXTERNAL_KNOWLEDGE_OPEN_ROUTE,
     EXTERNAL_KNOWLEDGE_SEARCH_ROUTE, EXTERNAL_KNOWLEDGE_STATUS_ROUTE,
-    EXTERNAL_KNOWLEDGE_SYNC_ROUTE, NEXUS_AUTHORITY_MIN_HEADER, NEXUS_PROVENANCE_SUMMARY_HEADER,
-    NEXUS_ROUTE_HEADER, NEXUS_SOURCE_ID_HEADER, NexusFlightRoute,
+    EXTERNAL_KNOWLEDGE_SYNC_ROUTE, EvidenceFlightRoute, KNOWLEDGE_EVIDENCE_JUDGE_ROUTE,
+    NEXUS_AUTHORITY_MIN_HEADER, NEXUS_PROVENANCE_SUMMARY_HEADER, NEXUS_ROUTE_HEADER,
+    NEXUS_SOURCE_ID_HEADER, NexusFlightRoute,
 };
 
 #[test]
@@ -40,6 +41,23 @@ fn routes_match_snapshot() {
             EXTERNAL_KNOWLEDGE_COMPARE_ROUTE,
         ]
     );
+}
+
+#[test]
+fn evidence_routes_are_separate_from_nexus_external_routes() {
+    let route = EvidenceFlightRoute::try_from(KNOWLEDGE_EVIDENCE_JUDGE_ROUTE).unwrap();
+
+    assert_eq!(route, EvidenceFlightRoute::Judge);
+    assert_eq!(route.as_str(), KNOWLEDGE_EVIDENCE_JUDGE_ROUTE);
+    assert_eq!(route.ticket().ticket.as_ref(), b"/knowledge/evidence/judge");
+    assert_eq!(
+        EvidenceFlightRoute::all()
+            .into_iter()
+            .map(EvidenceFlightRoute::as_str)
+            .collect::<Vec<_>>(),
+        vec![KNOWLEDGE_EVIDENCE_JUDGE_ROUTE]
+    );
+    assert!(NexusFlightRoute::try_from(KNOWLEDGE_EVIDENCE_JUDGE_ROUTE).is_err());
 }
 
 #[test]

@@ -179,6 +179,8 @@ pub struct SourceAuthorityProfile {
     pub requires_canonical_uri: bool,
     #[serde(default)]
     pub requires_revision_or_version: bool,
+    #[serde(default)]
+    pub requires_license: bool,
 }
 
 impl SourceAuthorityProfile {
@@ -189,6 +191,7 @@ impl SourceAuthorityProfile {
         license_policy: Option<String>,
     ) -> Self {
         let source_id = source_id.into();
+        let requires_license = license_policy.is_some();
         let mut profile = Self {
             source_id,
             domain,
@@ -200,6 +203,7 @@ impl SourceAuthorityProfile {
             requires_published_at: false,
             requires_canonical_uri: true,
             requires_revision_or_version: false,
+            requires_license,
         };
         profile.apply_domain_defaults();
         profile

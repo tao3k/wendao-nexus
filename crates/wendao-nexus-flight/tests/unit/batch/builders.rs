@@ -2,9 +2,11 @@ use arrow_array::{Array, BooleanArray, Float64Array, StringArray, TimestampNanos
 use chrono::{TimeZone, Utc};
 use wendao_nexus_core::{NexusJobKind, NexusJobRecord, NexusJobStatus, SourceCheckpoint};
 use wendao_nexus_flight::{
-    FlightCompareResultRow, FlightOpenDocumentRow, FlightSearchResultRow, FlightStatusRow,
-    FlightSyncResultRow, compare_result_record_batch, open_document_record_batch,
-    search_result_record_batch, status_record_batch, sync_result_record_batch,
+    FlightCompareResultRow, FlightEvidenceJudgeResultRow, FlightOpenDocumentRow,
+    FlightSearchResultRow, FlightStatusRow, FlightSyncResultRow, compare_result_record_batch,
+    evidence_judge_input_record_batch, evidence_judge_input_rows_from_search_rows,
+    evidence_judge_result_record_batch, open_document_record_batch, search_result_record_batch,
+    status_record_batch, sync_result_record_batch,
 };
 
 #[test]
@@ -166,4 +168,89 @@ fn compare_batch_carries_authority_flags() {
 
     assert!(insufficient_authority.value(0));
     assert!(batch.column(5).is_null(0));
+}
+
+#[test]
+fn evidence_judge_batch_carries_downstream_scores() {
+    let batch = evidence_judge_result_record_batch(&[FlightEvidenceJudgeResultRow {
+        source_id: "pubmed".to_string(),
+        external_id: "PMID:123".to_string(),
+        rust_trust_score: Some(0.91),
+        julia_evidence_score: Some(0.88),
+        corroboration_score: Some(0.5),
+        conflict_score: Some(0.0),
+        pollution_risk_score: Some(0.05),
+        freshness_adjusted_score: Some(0.83),
+        final_evidence_score: Some(0.86),
+        judgement_label: "trusted".to_string(),
+        explanation_json: None,
+    }])
+    .unwrap();
+
+    let evidence_scores = batch
+        .column(3)
+        .as_any()
+        .downcast_ref::<Float64Array>()
+        .unwrap();
+    let labels = batch
+        .column(9)
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+
+    assert_eq!(batch.num_rows(), 1);
+    assert_eq!(evidence_scores.value(0), 0.88);
+    assert_eq!(labels.value(0), "trusted");
+    assert!(batch.column(10).is_null(0));
+}
+
+#[test]
+fn evidence_judge_input_batch_can_be_built_from_search_rows() {
+    let fetched_at = Utc.with_ymd_and_hms(2026, 5, 2, 12, 0, 0).unwrap();
+    let search_row = FlightSearchResultRow {
+        source_id: "pubmed".to_string(),
+        external_id: "PMID:123".to_string(),
+        title: "Trial".to_string(),
+        snippet: Some("evidence".to_string()),
+        score: Some(0.92),
+        authority_level: "PeerReviewed".to_string(),
+        canonical_uri: "https://pubmed.ncbi.nlm.nih.gov/123/".to_string(),
+        fetched_at: Some(fetched_at),
+        content_hash: "sha256:abc".to_string(),
+        provenance_json: Some("{\"source\":\"pubmed\"}".to_string()),
+        section_id: Some("abstract".to_string()),
+        heading_path_json: Some("[\"Trial\",\"Abstract\"]".to_string()),
+        source_kind: Some("PubMed".to_string()),
+        published_at: Some(fetched_at),
+        source_updated_at: None,
+        trust_score: Some(0.8),
+        freshness_score: Some(0.7),
+        semantic_score: Some(0.92),
+        lexical_score: None,
+        rerank_score: None,
+        license_json: None,
+        metadata_json: Some("{\"pmid\":\"123\"}".to_string()),
+        doi: Some("10.1000/example".to_string()),
+        pmid: Some("123".to_string()),
+        jurisdiction: None,
+        evidence_kind: Some("review_article".to_string()),
+    };
+    let rows = evidence_judge_input_rows_from_search_rows(&[search_row]);
+    let batch = evidence_judge_input_record_batch(&rows).unwrap();
+
+    let evidence_kinds = batch
+        .column(9)
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    let trust_scores = batch
+        .column(13)
+        .as_any()
+        .downcast_ref::<Float64Array>()
+        .unwrap();
+
+    assert_eq!(batch.num_rows(), 1);
+    assert_eq!(batch.schema().field(0).name(), "source_id");
+    assert_eq!(evidence_kinds.value(0), "review_article");
+    assert_eq!(trust_scores.value(0), 0.8);
 }

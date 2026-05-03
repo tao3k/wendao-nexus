@@ -10,8 +10,9 @@ use wendao_nexus_core::{
 
 use crate::fixture_flight_support::{
     agriculture_pack_fixture_manifest, customer_private_pack_fixture_manifest,
-    legal_pack_fixture_manifest, real_medical_pubmed_snapshot_fixture_manifest,
-    real_wikipedia_science_subset_fixture_manifest, source_pack_fixture_manifest,
+    legal_pack_fixture_manifest, real_legal_public_snapshot_fixture_manifest,
+    real_medical_pubmed_snapshot_fixture_manifest, real_wikipedia_science_subset_fixture_manifest,
+    source_pack_fixture_manifest,
 };
 
 #[test]
@@ -70,7 +71,23 @@ fn source_pack_export_reports_are_conformant_for_business_packs() {
         assert_eq!(report.schema_version, SOURCE_PACK_MANIFEST_SCHEMA_VERSION);
         assert_eq!(report.source_count, case.source_count);
         assert_eq!(report.enabled_source_count, case.enabled_source_count);
+        assert_eq!(report.authority_profiles.len(), case.source_count);
         assert_eq!(report.fixture_paths.len(), case.source_count);
+        let profile = report
+            .authority_profiles
+            .iter()
+            .find(|profile| profile.source_id == case.source_id)
+            .unwrap();
+        assert_eq!(profile.domain, case.domain);
+        assert!(
+            profile
+                .expected_evidence_kinds
+                .iter()
+                .any(|evidence_kind| evidence_kind.wire_label() == case.evidence_kind),
+            "{} profile did not include evidence kind {}",
+            case.source_id,
+            case.evidence_kind
+        );
         assert!(
             report
                 .fixture_paths
@@ -150,7 +167,7 @@ impl SourcePackCase {
     }
 }
 
-fn source_pack_cases() -> [SourcePackCase; 6] {
+fn source_pack_cases() -> [SourcePackCase; 7] {
     [
         SourcePackCase {
             id: "medical-baseline-pack",
@@ -211,6 +228,16 @@ fn source_pack_cases() -> [SourcePackCase; 6] {
             source_id: "real-wikipedia-science",
             external_id: "wikipedia/CRISPR_gene_editing",
             evidence_kind: "definition",
+        },
+        SourcePackCase {
+            id: "real-legal-public-snapshot",
+            domain: SourceDomain::Legal,
+            source_count: 1,
+            enabled_source_count: 1,
+            manifest: real_legal_public_snapshot_fixture_manifest,
+            source_id: "real-ecfr-snapshot",
+            external_id: "ecfr/21-CFR-11.10",
+            evidence_kind: "law_clause",
         },
     ]
 }

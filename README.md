@@ -211,7 +211,8 @@ Production PubMed, Wikipedia, legal, news, paid database, and Wendao adapter
 work still wait. Default builds remain free of live client behavior; `reqwest`
 is allowed only as an optional `wendao-nexus-connectors` dependency behind the
 `live-probe` feature and live probe tests skip unless
-`WENDAO_NEXUS_RUN_LIVE_PROBE=1`.
+`WENDAO_NEXUS_RUN_LIVE_PROBE=1`. The probe is limited to unauthenticated public
+GET JSON endpoints in this phase; auth secret injection remains out of scope.
 
 ## Business Scenario First
 
@@ -228,6 +229,9 @@ The first commercial fixtures are vertical source packs:
 - recorded real-source snapshots for PubMed metadata and a Wikipedia science
   subset, using real identifiers and canonical URIs while keeping CI offline and
   avoiding redistributing restricted full text.
+- recorded public legal snapshot from eCFR metadata, using real CFR section
+  identifiers and canonical URIs while keeping only short compliance notes in
+  the Apache-licensed fixture.
 
 Nexus keeps these as deterministic local corpus input so business-critical
 knowledge paths can be validated before any live customer database, CRM,
@@ -240,10 +244,12 @@ contract rows. Flat manifests remain for negative validation cases.
 ## CocoIndex Positioning
 
 CocoIndex is a useful reference for general incremental dataflow and can become
-a future optional SourcePack exporter. It is not a Nexus core dependency in this
-repository. Any future bridge should output Nexus-owned source-pack fixtures or
-artifacts and leave authority, provenance, evidence kind, and Arrow Flight
-evidence boundaries under Nexus contracts.
+a future optional SourcePack exporter. Obscura-style external indexing or
+privacy/search frameworks are also outside this repo's current contract layer.
+Neither is a Nexus core dependency in this repository. Any future bridge should
+output Nexus-owned source-pack fixtures or artifacts and leave authority,
+provenance, evidence kind, and Arrow Flight evidence boundaries under Nexus
+contracts.
 
 ## Evidence Boundary
 

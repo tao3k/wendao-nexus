@@ -22,10 +22,12 @@ pub mod routes;
 pub mod schema;
 
 pub use batch::{
-    FlightCompareResultRow, FlightOpenDocumentRow, FlightSearchResultRow, FlightStatusRow,
-    FlightSyncResultRow, compare_result_record_batch, open_document_record_batch,
-    open_rows_from_document, search_result_record_batch, search_rows_from_response,
-    status_record_batch, sync_result_record_batch,
+    FlightCompareResultRow, FlightEvidenceJudgeInputRow, FlightEvidenceJudgeResultRow,
+    FlightOpenDocumentRow, FlightSearchResultRow, FlightStatusRow, FlightSyncResultRow,
+    compare_result_record_batch, evidence_judge_input_record_batch,
+    evidence_judge_input_rows_from_search_rows, evidence_judge_result_record_batch,
+    open_document_record_batch, open_rows_from_document, search_result_record_batch,
+    search_rows_from_response, status_record_batch, sync_result_record_batch,
 };
 pub use command::{
     NEXUS_FLIGHT_COMMAND_SCHEMA_VERSION, NexusFlightCommand, NexusFlightCommandError,
@@ -42,10 +44,12 @@ pub use provider::{
 pub use routes::{
     EXTERNAL_KNOWLEDGE_COMPARE_ROUTE, EXTERNAL_KNOWLEDGE_OPEN_ROUTE,
     EXTERNAL_KNOWLEDGE_SEARCH_ROUTE, EXTERNAL_KNOWLEDGE_STATUS_ROUTE,
-    EXTERNAL_KNOWLEDGE_SYNC_ROUTE, NexusFlightRoute,
+    EXTERNAL_KNOWLEDGE_SYNC_ROUTE, EvidenceFlightRoute, KNOWLEDGE_EVIDENCE_JUDGE_ROUTE,
+    NexusFlightRoute,
 };
 pub use schema::{
     NEXUS_FLIGHT_ROUTE_METADATA_KEY, NEXUS_FLIGHT_SCHEMA_VERSION,
-    NEXUS_FLIGHT_SCHEMA_VERSION_METADATA_KEY, compare_result_schema, open_document_schema,
-    search_result_schema, status_schema, sync_result_schema,
+    NEXUS_FLIGHT_SCHEMA_VERSION_METADATA_KEY, compare_result_schema, evidence_judge_input_schema,
+    evidence_judge_result_schema, open_document_schema, search_result_schema, status_schema,
+    sync_result_schema,
 };

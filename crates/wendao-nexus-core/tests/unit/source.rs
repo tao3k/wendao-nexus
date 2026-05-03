@@ -117,6 +117,16 @@ fn source_authority_profile_defaults_are_domain_aware() {
     assert!(profile.requires_published_at);
     assert!(profile.requires_canonical_uri);
     assert!(!profile.requires_revision_or_version);
+    assert!(profile.requires_license);
+
+    let legacy_json = r#"{
+      "source_id":"legacy",
+      "domain":"generic",
+      "authority_level":"Curated"
+    }"#;
+    let legacy: SourceAuthorityProfile = serde_json::from_str(legacy_json).unwrap();
+    assert!(!legacy.requires_license);
+    assert!(legacy.requires_canonical_uri);
 }
 
 #[test]

@@ -54,6 +54,7 @@ fn basic_judge_warns_for_missing_medical_identifiers_and_license() {
         None,
     );
     profile.license_policy = None;
+    profile.requires_license = true;
 
     let judgement = BasicEvidenceJudge::at(ts("2026-05-01T00:00:00Z")).judge(&document, &profile);
 

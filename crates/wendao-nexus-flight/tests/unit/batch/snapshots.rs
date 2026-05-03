@@ -1,8 +1,10 @@
 use chrono::{TimeZone, Utc};
 use wendao_nexus_flight::{
-    FlightCompareResultRow, FlightOpenDocumentRow, FlightSearchResultRow, FlightStatusRow,
-    FlightSyncResultRow, compare_result_record_batch, open_document_record_batch,
-    search_result_record_batch, status_record_batch, sync_result_record_batch,
+    FlightCompareResultRow, FlightEvidenceJudgeInputRow, FlightEvidenceJudgeResultRow,
+    FlightOpenDocumentRow, FlightSearchResultRow, FlightStatusRow, FlightSyncResultRow,
+    compare_result_record_batch, evidence_judge_input_record_batch,
+    evidence_judge_result_record_batch, open_document_record_batch, search_result_record_batch,
+    status_record_batch, sync_result_record_batch,
 };
 
 use super::fixtures::compact_batch_snapshot;
@@ -79,6 +81,38 @@ fn route_batch_rows_match_snapshots() {
         provenance_json: Some(r#"{"records":[{"source_id":"legal-compliance-demo"}]}"#.to_string()),
     }])
     .unwrap();
+    let judge_input_batch = evidence_judge_input_record_batch(&[FlightEvidenceJudgeInputRow {
+        source_id: "legal-compliance-demo".to_string(),
+        external_id: "legal/privacy/data-retention-clause".to_string(),
+        canonical_uri: "https://law.example.test/privacy-code/article-12".to_string(),
+        authority_level: "Official".to_string(),
+        published_at: Some(fetched_at),
+        fetched_at: Some(fetched_at),
+        doi: None,
+        pmid: None,
+        jurisdiction: Some("US-EXAMPLE".to_string()),
+        evidence_kind: Some("law_clause".to_string()),
+        snippet: Some("retain audit evidence".to_string()),
+        provenance_json: Some(r#"{"primary":{"source_id":"legal-compliance-demo"}}"#.to_string()),
+        metadata_json: Some(r#"{"jurisdiction":"US-EXAMPLE"}"#.to_string()),
+        trust_score: Some(1.0),
+        freshness_score: Some(0.9),
+    }])
+    .unwrap();
+    let judged_batch = evidence_judge_result_record_batch(&[FlightEvidenceJudgeResultRow {
+        source_id: "legal-compliance-demo".to_string(),
+        external_id: "legal/privacy/data-retention-clause".to_string(),
+        rust_trust_score: Some(0.94),
+        julia_evidence_score: Some(0.91),
+        corroboration_score: Some(0.5),
+        conflict_score: Some(0.0),
+        pollution_risk_score: Some(0.05),
+        freshness_adjusted_score: Some(0.88),
+        final_evidence_score: Some(0.9),
+        judgement_label: "trusted".to_string(),
+        explanation_json: Some(r#"{"independent_source_count":1}"#.to_string()),
+    }])
+    .unwrap();
 
     assert_eq!(
         compact_batch_snapshot(&search_batch),
@@ -148,5 +182,37 @@ conflict_detected=false
 insufficient_authority=false
 stale_evidence=false
 provenance_json={"records":[{"source_id":"legal-compliance-demo"}]}"#
+    );
+    assert_eq!(
+        compact_batch_snapshot(&judge_input_batch),
+        r#"source_id=legal-compliance-demo
+external_id=legal/privacy/data-retention-clause
+canonical_uri=https://law.example.test/privacy-code/article-12
+authority_level=Official
+published_at=1777723200000000000
+fetched_at=1777723200000000000
+doi=<null>
+pmid=<null>
+jurisdiction=US-EXAMPLE
+evidence_kind=law_clause
+snippet=retain audit evidence
+provenance_json={"primary":{"source_id":"legal-compliance-demo"}}
+metadata_json={"jurisdiction":"US-EXAMPLE"}
+trust_score=1
+freshness_score=0.9"#
+    );
+    assert_eq!(
+        compact_batch_snapshot(&judged_batch),
+        r#"source_id=legal-compliance-demo
+external_id=legal/privacy/data-retention-clause
+rust_trust_score=0.94
+julia_evidence_score=0.91
+corroboration_score=0.5
+conflict_score=0
+pollution_risk_score=0.05
+freshness_adjusted_score=0.88
+final_evidence_score=0.9
+judgement_label=trusted
+explanation_json={"independent_source_count":1}"#
     );
 }

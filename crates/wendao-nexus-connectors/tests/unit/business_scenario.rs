@@ -111,6 +111,7 @@ async fn directory_first_source_packs_match_expected_snapshots() {
         medical_baseline_pack_root(),
         real_medical_pubmed_snapshot_pack_root(),
         real_wikipedia_science_subset_pack_root(),
+        real_legal_public_snapshot_pack_root(),
     ] {
         let pack = SourcePack::from_path(pack_root.join("source_pack.toml")).unwrap();
 
@@ -249,6 +250,10 @@ fn real_medical_pubmed_snapshot_pack_root() -> PathBuf {
 
 fn real_wikipedia_science_subset_pack_root() -> PathBuf {
     source_pack_root("real_wikipedia_science_subset")
+}
+
+fn real_legal_public_snapshot_pack_root() -> PathBuf {
+    source_pack_root("real_legal_public_snapshot")
 }
 
 fn source_pack_root(pack: &str) -> PathBuf {

@@ -17,8 +17,9 @@ use wendao_nexus_runtime::{ArtifactKind, ArtifactStore};
 
 use crate::fixture_flight_support::{
     agriculture_pack_fixture_manifest, artifact_dir, customer_private_pack_fixture_manifest,
-    legal_pack_fixture_manifest, real_medical_pubmed_snapshot_fixture_manifest,
-    real_wikipedia_science_subset_fixture_manifest, source_pack_fixture_manifest,
+    legal_pack_fixture_manifest, real_legal_public_snapshot_fixture_manifest,
+    real_medical_pubmed_snapshot_fixture_manifest, real_wikipedia_science_subset_fixture_manifest,
+    source_pack_fixture_manifest,
 };
 
 use super::support::{
@@ -248,7 +249,7 @@ impl HarnessCase {
     }
 }
 
-fn harness_cases() -> [HarnessCase; 6] {
+fn harness_cases() -> [HarnessCase; 7] {
     [
         HarnessCase {
             manifest: source_pack_fixture_manifest,
@@ -326,6 +327,19 @@ fn harness_cases() -> [HarnessCase; 6] {
             allow_community_sources: true,
             compare_claim: "CRISPR gene editing",
             compare_authority: AuthorityLevel::Community,
+            compare_verdict: "evidence_available",
+        },
+        HarnessCase {
+            manifest: real_legal_public_snapshot_fixture_manifest,
+            source_id: "real-ecfr-snapshot",
+            external_id: "ecfr/21-CFR-11.10",
+            query: "closed systems authenticity integrity",
+            evidence_kind: "law_clause",
+            metadata_probe: "US-FED",
+            search_authority: AuthorityLevel::Official,
+            allow_community_sources: false,
+            compare_claim: "closed systems authenticity integrity",
+            compare_authority: AuthorityLevel::Official,
             compare_verdict: "evidence_available",
         },
     ]

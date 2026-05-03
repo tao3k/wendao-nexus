@@ -63,7 +63,7 @@ impl EvidenceJudge for BasicEvidenceJudge {
         if document.provenance.authority_level == AuthorityLevel::Unknown {
             warnings.push(EvidenceWarning::UnknownAuthority);
         }
-        if license_score <= f64::EPSILON {
+        if profile.requires_license && license_score <= f64::EPSILON {
             warnings.push(EvidenceWarning::UnknownLicense);
         }
         if profile.requires_revision_or_version
@@ -210,7 +210,7 @@ fn freshness_score(
 }
 
 fn license_score(document: &ExternalKnowledgeDocument, profile: &SourceAuthorityProfile) -> f64 {
-    if document.license.is_some() || profile.license_policy.is_some() {
+    if !profile.requires_license || document.license.is_some() || profile.license_policy.is_some() {
         1.0
     } else {
         0.0
