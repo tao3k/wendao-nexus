@@ -1,0 +1,128 @@
+use wendao_nexus_connectors::{
+    SOURCE_PACK_MANIFEST_SCHEMA_VERSION, SourcePack, SourcePackManifest,
+};
+use wendao_nexus_core::{
+    AuthorityLevel, KnowledgeSourceConnector, KnowledgeSourceKind, SOURCE_METADATA_PMID_KEY,
+    SourceDomain, SourceItemRef,
+};
+
+use super::fixtures::{fixture_manifest, json_fixture_manifest};
+
+#[tokio::test]
+async fn source_pack_loads_manifest_and_local_corpus_connectors() {
+    let pack = SourcePack::from_path(fixture_manifest()).unwrap();
+
+    assert_eq!(pack.manifest().source_pack.id, "medical-demo-pack");
+    assert_eq!(pack.manifest().source_pack.version, "0.1.0");
+    assert_eq!(
+        pack.manifest().source_pack.schema_version,
+        SOURCE_PACK_MANIFEST_SCHEMA_VERSION
+    );
+    assert_eq!(
+        pack.manifest().source_pack.producer.as_deref(),
+        Some("wendao-nexus-fixtures")
+    );
+    assert_eq!(pack.manifest().source_pack.domain, SourceDomain::Medical);
+    assert_eq!(
+        pack.manifest().source_pack.authority_level,
+        Some(AuthorityLevel::Curated)
+    );
+    assert_eq!(pack.connectors().len(), 2);
+
+    let pubmed = pack.connector("demo-pubmed").unwrap();
+    assert_eq!(pubmed.source_kind(), KnowledgeSourceKind::PubMed);
+    let discovered = pubmed.discover(None).await.unwrap();
+    assert_eq!(discovered.items.len(), 1);
+    assert_eq!(discovered.items[0].external_id, "medical/pubmed-demo-1");
+
+    let article = pubmed
+        .fetch(SourceItemRef::new("demo-pubmed", "medical/pubmed-demo-1"))
+        .await
+        .unwrap();
+    assert_eq!(
+        article
+            .metadata
+            .get(SOURCE_METADATA_PMID_KEY)
+            .map(String::as_str),
+        Some("PMID:DEMO1")
+    );
+    assert_eq!(
+        article.canonical_uri,
+        "https://pubmed.ncbi.nlm.nih.gov/fixture-demo-1/"
+    );
+
+    let guideline_source = pack.source("demo-guideline").unwrap();
+    assert_eq!(
+        guideline_source.authority_level,
+        Some(AuthorityLevel::Curated)
+    );
+    let guideline = pack
+        .connector("demo-guideline")
+        .unwrap()
+        .fetch(SourceItemRef::new(
+            "demo-guideline",
+            "medical/guideline-demo",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        guideline.canonical_uri,
+        "local-corpus://demo-guideline/medical/guideline-demo"
+    );
+}
+
+#[test]
+fn source_pack_manifest_can_be_parsed_without_loading_connectors() {
+    let manifest = SourcePackManifest::from_path(fixture_manifest()).unwrap();
+
+    assert_eq!(manifest.sources.len(), 2);
+    assert_eq!(manifest.source_pack.domain, SourceDomain::Medical);
+    assert_eq!(
+        manifest.source_pack.schema_version,
+        SOURCE_PACK_MANIFEST_SCHEMA_VERSION
+    );
+    assert_eq!(manifest.sources[0].source_id, "demo-pubmed");
+    assert_eq!(
+        manifest.sources[1].fixture_path,
+        "../corpus/medical/guideline.md"
+    );
+}
+
+#[tokio::test]
+async fn source_pack_json_manifest_loads_like_toml_manifest() {
+    let pack = SourcePack::from_path(json_fixture_manifest()).unwrap();
+
+    assert_eq!(pack.manifest().source_pack.id, "medical-demo-pack-json");
+    assert_eq!(pack.manifest().source_pack.domain, SourceDomain::Medical);
+    assert_eq!(
+        pack.manifest().source_pack.producer.as_deref(),
+        Some("wendao-nexus-fixtures")
+    );
+    assert_eq!(pack.connectors().len(), 2);
+    assert_eq!(
+        pack.source("demo-pubmed-json")
+            .and_then(|source| source.display_name.as_deref()),
+        Some("Demo PubMed Fixture JSON")
+    );
+    assert_eq!(
+        pack.source("demo-pubmed-json")
+            .and_then(|source| source.license.as_deref()),
+        Some("PubMed Fixture License JSON")
+    );
+
+    let pubmed = pack.connector("demo-pubmed-json").unwrap();
+    let discovered = pubmed.discover(None).await.unwrap();
+    assert_eq!(discovered.items.len(), 1);
+
+    let article = pubmed
+        .fetch(SourceItemRef::new(
+            "demo-pubmed-json",
+            "medical/pubmed-demo-1",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        article.canonical_uri,
+        "https://pubmed.ncbi.nlm.nih.gov/fixture-demo-1/"
+    );
+}

@@ -1,0 +1,9 @@
+[source_pack]
+id = "empty-source-license-pack"
+version = "0.1.0"
+
+[[sources]]
+source_id = "demo-pubmed"
+kind = "PubMed"
+fixture_path = "../corpus/medical/articles.jsonl"
+license = " "

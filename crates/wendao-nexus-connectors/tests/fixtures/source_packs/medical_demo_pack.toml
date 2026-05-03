@@ -12,6 +12,8 @@ license = "Fixture License"
 source_id = "demo-pubmed"
 kind = "PubMed"
 fixture_path = "../corpus/medical/articles.jsonl"
+display_name = "Demo PubMed Fixture"
+license = "PubMed Fixture License"
 authority_level = "PeerReviewed"
 
 [[sources]]

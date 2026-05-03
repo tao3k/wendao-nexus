@@ -1,0 +1,9 @@
+[source_pack]
+id = "whitespace-source-display-name-pack"
+version = "0.1.0"
+
+[[sources]]
+source_id = "demo-pubmed"
+kind = "PubMed"
+fixture_path = "../corpus/medical/articles.jsonl"
+display_name = " Demo PubMed "

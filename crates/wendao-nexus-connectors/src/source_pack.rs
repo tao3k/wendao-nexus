@@ -54,6 +54,10 @@ pub struct SourcePackSource {
     #[serde(default)]
     pub canonical_uri_prefix: Option<String>,
     #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
     pub authority_level: Option<AuthorityLevel>,
     #[serde(default = "default_enabled")]
     pub enabled: bool,
@@ -62,11 +66,14 @@ pub struct SourcePackSource {
 impl SourcePackSource {
     pub fn source_record(&self, pack: &SourcePackMetadata) -> NexusSourceRecord {
         let mut record = NexusSourceRecord::new(self.source_id.clone(), self.kind.clone());
+        if let Some(display_name) = &self.display_name {
+            record.display_name = display_name.clone();
+        }
         record.base_uri = self
             .canonical_uri_prefix
             .clone()
             .or_else(|| Some(self.fixture_path.clone()));
-        record.license_policy = pack.license.clone();
+        record.license_policy = self.license.clone().or_else(|| pack.license.clone());
         record.authority_level = self
             .authority_level
             .or(pack.authority_level)
@@ -311,6 +318,16 @@ fn validate_manifest(manifest: &SourcePackManifest) -> NexusResult<()> {
                 )));
             }
         }
+        if let Some(display_name) = &source.display_name {
+            validate_optional_source_metadata_value(
+                &source.source_id,
+                "display_name",
+                display_name,
+            )?;
+        }
+        if let Some(license) = &source.license {
+            validate_optional_source_metadata_value(&source.source_id, "license", license)?;
+        }
     }
 
     let mut source_ids = BTreeSet::new();
@@ -347,6 +364,24 @@ fn validate_optional_metadata_value(
     if value != value.trim() {
         return Err(NexusError::InvalidSource(format!(
             "source pack `{pack_id}` {field_name} `{value}` must not contain leading or trailing whitespace"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_optional_source_metadata_value(
+    source_id: &str,
+    field_name: &str,
+    value: &str,
+) -> NexusResult<()> {
+    if value.trim().is_empty() {
+        return Err(NexusError::InvalidSource(format!(
+            "source `{source_id}` {field_name} must not be empty"
+        )));
+    }
+    if value != value.trim() {
+        return Err(NexusError::InvalidSource(format!(
+            "source `{source_id}` {field_name} `{value}` must not contain leading or trailing whitespace"
         )));
     }
     Ok(())

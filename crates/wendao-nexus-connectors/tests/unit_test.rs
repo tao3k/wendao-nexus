@@ -8,7 +8,7 @@ mod external_database;
 mod local_corpus;
 #[path = "unit/pubmed_wikipedia.rs"]
 mod pubmed_wikipedia;
-#[path = "unit/source_pack.rs"]
+#[path = "unit/source_pack/mod.rs"]
 mod source_pack;
 #[path = "unit/static_connector.rs"]
 mod static_connector;
