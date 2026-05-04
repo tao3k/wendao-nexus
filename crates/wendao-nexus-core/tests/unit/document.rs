@@ -3,15 +3,18 @@ use std::collections::BTreeMap;
 use chrono::Utc;
 use wendao_nexus_core::{
     EVIDENCE_KIND_METADATA_KEY, EvidenceKind, ExtractedDocumentResource,
-    ExtractedDocumentResourceSet, RawSourceDocument, SOURCE_METADATA_AMENDMENT_VERSION_KEY,
-    SOURCE_METADATA_ARTICLE_KEY, SOURCE_METADATA_CROP_KEY, SOURCE_METADATA_DEMAND_SIGNAL_KEY,
-    SOURCE_METADATA_DEPARTMENT_KEY, SOURCE_METADATA_DOCUMENT_KIND_KEY, SOURCE_METADATA_DOI_KEY,
-    SOURCE_METADATA_EFFECTIVE_AT_KEY, SOURCE_METADATA_LICENSE_KEY,
-    SOURCE_METADATA_LICENSE_USAGE_POLICY_KEY, SOURCE_METADATA_OWNER_TEAM_KEY,
-    SOURCE_METADATA_PRICE_DATE_KEY, SOURCE_METADATA_PUBLISHED_AT_KEY, SOURCE_METADATA_REGION_KEY,
-    SOURCE_METADATA_REVISION_ID_KEY, SOURCE_METADATA_STATUTE_KEY,
-    SOURCE_METADATA_SUPPLY_SIGNAL_KEY, SOURCE_METADATA_TITLE_KEY,
-    SOURCE_METADATA_WEATHER_WINDOW_KEY, SourceMetadata,
+    ExtractedDocumentResourceSet, RawSourceDocument, SOURCE_METADATA_ACL_TAGS_KEY,
+    SOURCE_METADATA_AMENDMENT_VERSION_KEY, SOURCE_METADATA_ARTICLE_KEY,
+    SOURCE_METADATA_AUTHORS_KEY, SOURCE_METADATA_CLINICAL_TRIAL_ID_KEY, SOURCE_METADATA_CROP_KEY,
+    SOURCE_METADATA_DEMAND_SIGNAL_KEY, SOURCE_METADATA_DEPARTMENT_KEY,
+    SOURCE_METADATA_DOCUMENT_KIND_KEY, SOURCE_METADATA_DOI_KEY, SOURCE_METADATA_EFFECTIVE_AT_KEY,
+    SOURCE_METADATA_JURISDICTION_KEY, SOURCE_METADATA_LICENSE_KEY, SOURCE_METADATA_LICENSE_URL_KEY,
+    SOURCE_METADATA_LICENSE_USAGE_POLICY_KEY, SOURCE_METADATA_MESH_TERMS_KEY,
+    SOURCE_METADATA_OWNER_TEAM_KEY, SOURCE_METADATA_PMID_KEY, SOURCE_METADATA_PRICE_DATE_KEY,
+    SOURCE_METADATA_PUBLISHED_AT_KEY, SOURCE_METADATA_REGION_KEY, SOURCE_METADATA_REVISION_ID_KEY,
+    SOURCE_METADATA_SECTION_KEY, SOURCE_METADATA_STATUTE_KEY, SOURCE_METADATA_SUPPLY_SIGNAL_KEY,
+    SOURCE_METADATA_TENANT_ID_KEY, SOURCE_METADATA_TITLE_KEY, SOURCE_METADATA_UPDATED_AT_KEY,
+    SOURCE_METADATA_VERSION_KEY, SOURCE_METADATA_WEATHER_WINDOW_KEY, SourceMetadata,
 };
 
 #[test]
@@ -81,6 +84,80 @@ fn standard_source_metadata_keys_are_stable() {
     assert_eq!(SOURCE_METADATA_DEPARTMENT_KEY, "department");
     assert_eq!(SOURCE_METADATA_DOCUMENT_KIND_KEY, "document_kind");
     assert_eq!(SOURCE_METADATA_OWNER_TEAM_KEY, "owner_team");
+}
+
+#[test]
+fn source_metadata_key_surface_is_frozen_for_profile_driven_schema_migration() {
+    // These v0 keys remain for compatibility with existing fixture packs and
+    // snapshots. New domain-specific external fields should be expressed by
+    // SourceProfile field descriptors and dynamic attributes, not by adding
+    // more Rust constants/getters here.
+    assert_eq!(
+        [
+            SOURCE_METADATA_ACL_TAGS_KEY,
+            SOURCE_METADATA_AMENDMENT_VERSION_KEY,
+            SOURCE_METADATA_ARTICLE_KEY,
+            SOURCE_METADATA_AUTHORS_KEY,
+            SOURCE_METADATA_CLINICAL_TRIAL_ID_KEY,
+            SOURCE_METADATA_CROP_KEY,
+            SOURCE_METADATA_DEMAND_SIGNAL_KEY,
+            SOURCE_METADATA_DEPARTMENT_KEY,
+            SOURCE_METADATA_DOCUMENT_KIND_KEY,
+            SOURCE_METADATA_DOI_KEY,
+            SOURCE_METADATA_EFFECTIVE_AT_KEY,
+            SOURCE_METADATA_JURISDICTION_KEY,
+            SOURCE_METADATA_LICENSE_KEY,
+            SOURCE_METADATA_LICENSE_URL_KEY,
+            SOURCE_METADATA_LICENSE_USAGE_POLICY_KEY,
+            SOURCE_METADATA_MESH_TERMS_KEY,
+            SOURCE_METADATA_OWNER_TEAM_KEY,
+            SOURCE_METADATA_PMID_KEY,
+            SOURCE_METADATA_PRICE_DATE_KEY,
+            SOURCE_METADATA_PUBLISHED_AT_KEY,
+            SOURCE_METADATA_REGION_KEY,
+            SOURCE_METADATA_REVISION_ID_KEY,
+            SOURCE_METADATA_SECTION_KEY,
+            SOURCE_METADATA_STATUTE_KEY,
+            SOURCE_METADATA_SUPPLY_SIGNAL_KEY,
+            SOURCE_METADATA_TENANT_ID_KEY,
+            SOURCE_METADATA_TITLE_KEY,
+            SOURCE_METADATA_UPDATED_AT_KEY,
+            SOURCE_METADATA_VERSION_KEY,
+            SOURCE_METADATA_WEATHER_WINDOW_KEY,
+        ],
+        [
+            "acl_tags",
+            "amendment_version",
+            "article",
+            "authors",
+            "clinical_trial_id",
+            "crop",
+            "demand_signal",
+            "department",
+            "document_kind",
+            "doi",
+            "effective_at",
+            "jurisdiction",
+            "license",
+            "license_url",
+            "license_usage_policy",
+            "mesh_terms",
+            "owner_team",
+            "pmid",
+            "price_date",
+            "published_at",
+            "region",
+            "revision_id",
+            "section",
+            "statute",
+            "supply_signal",
+            "tenant_id",
+            "title",
+            "updated_at",
+            "version",
+            "weather_window",
+        ]
+    );
 }
 
 #[test]

@@ -242,11 +242,16 @@ impl HarnessCase {
     fn expected_snapshot(&self, file_name: &str) -> String {
         let manifest_path = self.manifest();
         let pack_root = manifest_path.parent().unwrap();
-        std::fs::read_to_string(pack_root.join(file_name))
-            .unwrap()
-            .trim_end()
-            .to_string()
+        normalize_snapshot(
+            std::fs::read_to_string(pack_root.join(file_name))
+                .unwrap()
+                .trim_end(),
+        )
     }
+}
+
+fn normalize_snapshot(snapshot: &str) -> String {
+    snapshot.replace("\r\n", "\n")
 }
 
 fn harness_cases() -> [HarnessCase; 7] {

@@ -512,8 +512,63 @@ fn validate_manifest(manifest: &SourcePackManifest) -> NexusResult<()> {
                 license_policy,
             )?;
         }
+        validate_profile_fields(&manifest.source_pack.id, profile)?;
     }
 
+    Ok(())
+}
+
+fn validate_profile_fields(pack_id: &str, profile: &SourceAuthorityProfile) -> NexusResult<()> {
+    let mut field_keys = BTreeSet::new();
+    for field in &profile.fields {
+        if field.key.namespace.trim().is_empty() {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{pack_id}` source_profile `{}` contains field with empty namespace",
+                profile.source_id
+            )));
+        }
+        if field.key.namespace != field.key.namespace.trim() {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{pack_id}` source_profile `{}` field namespace `{}` must not contain leading or trailing whitespace",
+                profile.source_id, field.key.namespace
+            )));
+        }
+        if field.key.name.trim().is_empty() {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{pack_id}` source_profile `{}` contains field with empty name",
+                profile.source_id
+            )));
+        }
+        if field.key.name != field.key.name.trim() {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{pack_id}` source_profile `{}` field name `{}` must not contain leading or trailing whitespace",
+                profile.source_id, field.key.name
+            )));
+        }
+        if !field_keys.insert((&field.key.namespace, &field.key.name)) {
+            return Err(NexusError::InvalidSource(format!(
+                "source pack `{pack_id}` source_profile `{}` contains duplicate field `{}`",
+                profile.source_id,
+                field.key.dotted()
+            )));
+        }
+        for alias in &field.aliases {
+            if alias.trim().is_empty() {
+                return Err(NexusError::InvalidSource(format!(
+                    "source pack `{pack_id}` source_profile `{}` field `{}` contains an empty alias",
+                    profile.source_id,
+                    field.key.dotted()
+                )));
+            }
+            if alias != alias.trim() {
+                return Err(NexusError::InvalidSource(format!(
+                    "source pack `{pack_id}` source_profile `{}` field `{}` alias `{alias}` must not contain leading or trailing whitespace",
+                    profile.source_id,
+                    field.key.dotted()
+                )));
+            }
+        }
+    }
     Ok(())
 }
 

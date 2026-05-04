@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::attributes::FieldDescriptor;
 use crate::authority::AuthorityLevel;
 use crate::query::EvidenceKind;
 use crate::source::SourceDomain;
@@ -170,6 +171,8 @@ pub struct SourceAuthorityProfile {
     #[serde(default)]
     pub expected_evidence_kinds: Vec<EvidenceKind>,
     #[serde(default)]
+    pub fields: Vec<FieldDescriptor>,
+    #[serde(default)]
     pub license_policy: Option<String>,
     #[serde(default)]
     pub max_staleness_days: Option<u32>,
@@ -198,6 +201,7 @@ impl SourceAuthorityProfile {
             authority_level,
             expected_identifiers: Vec::new(),
             expected_evidence_kinds: Vec::new(),
+            fields: Vec::new(),
             license_policy,
             max_staleness_days: None,
             requires_published_at: false,

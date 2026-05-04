@@ -25,6 +25,13 @@ fields that source packs need, including legal jurisdiction/statute/article and
 agriculture region/crop/market-signal fields. That lets agents and LLM-facing
 tools receive an evidence boundary without making Nexus a parser framework.
 
+That v0 metadata surface is a compatibility bridge, not the long-term extension
+mechanism. Nexus must not encode every domain-specific external field in Rust.
+Rust owns the stable evidence boundary, profile validation, canonical
+projection, and deterministic policy evaluation. Source-specific field semantics
+belong to SourceProfile manifests, dynamic evidence attributes, and downstream
+evidence algorithms.
+
 ## Workspace
 
 ```text
@@ -44,6 +51,8 @@ Project documentation uses a local Johnny.Decimal topology:
 - `docs/10_architecture/10.01_nexus_boundary.md` records the standalone Nexus
   boundary.
 - `docs/10_architecture/10.02_flight_protocol.md` records the Flight contract.
+- `docs/10_architecture/10.03_profile_driven_evidence_schema.md` records the
+  profile-driven evidence schema direction.
 - `docs/20_runtime/20.01_runtime_and_connectors.md` records runtime and
   connector ownership.
 - `docs/90_operations/90.01_validation_and_governance.md` records validation and

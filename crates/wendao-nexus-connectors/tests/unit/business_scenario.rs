@@ -330,8 +330,13 @@ fn source_pack_status_snapshot(pack: &SourcePack) -> String {
 }
 
 fn expected_snapshot(pack_root: &std::path::Path, file_name: &str) -> String {
-    std::fs::read_to_string(pack_root.join(file_name))
-        .unwrap()
-        .trim_end()
-        .to_string()
+    normalize_snapshot(
+        std::fs::read_to_string(pack_root.join(file_name))
+            .unwrap()
+            .trim_end(),
+    )
+}
+
+fn normalize_snapshot(snapshot: &str) -> String {
+    snapshot.replace("\r\n", "\n")
 }

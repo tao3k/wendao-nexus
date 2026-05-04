@@ -124,6 +124,10 @@ fn wendao_nexus_harness_config() -> RustHarnessConfig {
             .with_rationale("Wikipedia connector exposes source-specific adapter contracts"),
         )
         .with_verification_profile_hint(
+            RustVerificationProfileHint::new("src/attributes.rs", [RustOwnerResponsibility::PublicApi])
+                .with_rationale("dynamic evidence attributes and field descriptors are public profile-driven schema contracts"),
+        )
+        .with_verification_profile_hint(
             RustVerificationProfileHint::new("src/authority.rs", [RustOwnerResponsibility::PublicApi])
                 .with_rationale("authority policy types are part of the public evidence contract"),
         )

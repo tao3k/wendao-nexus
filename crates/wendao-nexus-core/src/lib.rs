@@ -10,6 +10,8 @@ rust_lang_project_harness::rust_project_harness_source_gate!(
     "../../../tests/support/rust_harness.rs"
 );
 
+/// Dynamic evidence attributes and profile field descriptors.
+pub mod attributes;
 /// Authority and trust policy types for filtering evidence.
 pub mod authority;
 /// Connector trait shared by external source adapters.
@@ -29,6 +31,10 @@ pub mod sync;
 /// Provenance bundle and evidence boundary contracts.
 pub mod trust;
 
+pub use attributes::{
+    CanonicalEvidenceSlot, EvidenceAttribute, EvidenceAttributes, EvidenceFieldType, EvidenceValue,
+    FieldDescriptor, FieldKey,
+};
 pub use authority::{AuthorityLevel, TrustPolicy, TrustSignal};
 pub use connector::KnowledgeSourceConnector;
 pub use document::{

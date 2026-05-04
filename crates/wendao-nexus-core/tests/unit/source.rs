@@ -1,6 +1,7 @@
 use wendao_nexus_core::{
-    AuthorityLevel, EvidenceKind, EvidenceWarning, IdentifierKind, KnowledgeSourceKind,
-    NexusSourceRecord, SOURCE_PACK_DISPLAY_NAME_METADATA_KEY, SOURCE_PACK_DOMAIN_METADATA_KEY,
+    AuthorityLevel, CanonicalEvidenceSlot, EvidenceFieldType, EvidenceKind, EvidenceWarning,
+    FieldKey, IdentifierKind, KnowledgeSourceKind, NexusSourceRecord,
+    SOURCE_PACK_DISPLAY_NAME_METADATA_KEY, SOURCE_PACK_DOMAIN_METADATA_KEY,
     SOURCE_PACK_FIXTURE_PATH_METADATA_KEY, SOURCE_PACK_ID_METADATA_KEY,
     SOURCE_PACK_PRODUCER_METADATA_KEY, SOURCE_PACK_SCHEMA_VERSION_METADATA_KEY,
     SOURCE_PACK_VERSION_METADATA_KEY, SourceAuthorityProfile, SourceCapabilities, SourceCheckpoint,
@@ -118,6 +119,7 @@ fn source_authority_profile_defaults_are_domain_aware() {
     assert!(profile.requires_canonical_uri);
     assert!(!profile.requires_revision_or_version);
     assert!(profile.requires_license);
+    assert!(profile.fields.is_empty());
 
     let legacy_json = r#"{
       "source_id":"legacy",
@@ -127,6 +129,34 @@ fn source_authority_profile_defaults_are_domain_aware() {
     let legacy: SourceAuthorityProfile = serde_json::from_str(legacy_json).unwrap();
     assert!(!legacy.requires_license);
     assert!(legacy.requires_canonical_uri);
+    assert!(legacy.fields.is_empty());
+}
+
+#[test]
+fn source_authority_profile_accepts_field_descriptors_for_dynamic_attributes() {
+    let json = r#"{
+      "source_id":"pubmed-snapshot",
+      "domain":"medical",
+      "authority_level":"PeerReviewed",
+      "fields":[{
+        "key":{"namespace":"medical","name":"pmid"},
+        "value_type":"string",
+        "required":true,
+        "aliases":["PMID","pubmed_id"],
+        "canonical_slot":"identifier"
+      }]
+    }"#;
+
+    let profile: SourceAuthorityProfile = serde_json::from_str(json).unwrap();
+
+    assert_eq!(profile.fields.len(), 1);
+    assert_eq!(profile.fields[0].key, FieldKey::new("medical", "pmid"));
+    assert_eq!(profile.fields[0].value_type, EvidenceFieldType::String);
+    assert!(profile.fields[0].required);
+    assert_eq!(
+        profile.fields[0].canonical_slot,
+        Some(CanonicalEvidenceSlot::Identifier)
+    );
 }
 
 #[test]

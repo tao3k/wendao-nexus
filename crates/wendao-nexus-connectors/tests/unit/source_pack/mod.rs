@@ -1,3 +1,4 @@
+mod fields;
 mod fixtures;
 mod load;
 mod records;
